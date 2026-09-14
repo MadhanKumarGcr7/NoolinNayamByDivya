@@ -1,6 +1,6 @@
 'use client';
 
-export function SizeSelector({ sizes = [], selectedSize, onSelectSize, isSizeDisabled }) {
+export function SizeSelector({ sizes = [], selectedSize, onSelectSize, isSizeDisabled, onOpenSizeGuide }) {
   if (!sizes || sizes.length === 0) return null;
 
   return (
@@ -9,9 +9,13 @@ export function SizeSelector({ sizes = [], selectedSize, onSelectSize, isSizeDis
         <label className="text-label-lg uppercase tracking-[0.16em] font-sans font-medium text-charcoal">
           Select Size: <span className="font-light text-charcoal-600">{selectedSize}</span>
         </label>
-        <a href="#size-guide" className="text-body-xs font-sans text-warmBrown underline hover:text-charcoal transition-colors">
+        <button
+          type="button"
+          onClick={onOpenSizeGuide}
+          className="text-body-xs font-sans text-warmBrown underline hover:text-charcoal transition-colors cursor-pointer"
+        >
           Size Guide
-        </a>
+        </button>
       </div>
 
       <div className="flex flex-wrap gap-2.5" role="radiogroup" aria-label="Product Size Options">

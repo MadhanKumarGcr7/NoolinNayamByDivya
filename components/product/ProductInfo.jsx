@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
+import SizeGuideModal from '@/components/ui/SizeGuideModal';
 import { SizeSelector } from '@/components/product/VariantSelectors';
 import useCartStore from '@/store/cartStore';
 import useWishlistStore from '@/store/wishlistStore';
@@ -18,6 +19,7 @@ export default function ProductInfo({ product }) {
   const [selectedSize, setSelectedSize] = useState(product.sizes?.[0] || '1Y');
   const [quantity, setQuantity]         = useState(1);
   const [activeTab, setActiveTab]       = useState('details');
+  const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false);
 
   const { addItem } = useCartStore();
   const { toggleItem, isWishlisted } = useWishlistStore();
@@ -120,6 +122,7 @@ export default function ProductInfo({ product }) {
         selectedSize={selectedSize}
         onSelectSize={setSelectedSize}
         isSizeDisabled={(s) => isVariantOutOfStock(s)}
+        onOpenSizeGuide={() => setIsSizeGuideOpen(true)}
       />
 
       {/* Quantity Selector */}
@@ -148,100 +151,96 @@ export default function ProductInfo({ product }) {
         </div>
       </div>
 
-      {/* CTAs Action Block */}
-      <div className="flex flex-col sm:flex-row gap-3 mt-4">
-        <Button
-          onClick={handleAddToCart}
-          variant="secondary"
-          size="lg"
-          disabled={totalOut || currentVariantOut}
-          className={`flex-1 ${
-            totalOut || currentVariantOut
-              ? 'opacity-50 bg-charcoal-400 border-charcoal-400 cursor-not-allowed text-ivory'
-              : ''
-          }`}
-        >
-          {totalOut
-            ? 'UNAVAILABLE'
-            : currentVariantOut
-            ? 'OUT OF STOCK'
-            : 'ADD TO CART'}
-        </Button>
-
-        {!(totalOut || currentVariantOut) && (
-          <Button
-            onClick={handleBuyNow}
-            variant="primary"
-            size="lg"
-            className="flex-1"
-            arrow
-          >
-            BUY NOW
-          </Button>
-        )}
-
-        <button
-          onClick={handleWishlistToggle}
-          aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
-          className={`p-4 border transition-colors flex items-center justify-center ${
-            wishlisted ? 'border-warmBrown text-warmBrown bg-blush-light/30' : 'border-border text-charcoal hover:border-charcoal'
-          }`}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill={wishlisted ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
-          </svg>
-        </button>
-      </div>
-
-      {/* WhatsApp Customization Inquiry Banner */}
-      {product.customizable && (
-        <div className="bg-cream border border-border p-4 mt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div>
-            <p className="text-body-xs font-medium text-charcoal uppercase tracking-[0.1em]">Need custom sizing or color?</p>
-            <p className="text-body-xs text-charcoal-600 font-light">We can crochet this item tailored to your requirements.</p>
-          </div>
-          <a
-            href={getWhatsAppUrl(`Hi! I'd like to ask about customizing the "${product.name}".`)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-label-md uppercase tracking-[0.14em] text-warmBrown font-medium whitespace-nowrap hover:underline"
-          >
-            Custom Inquiry →
-          </a>
-        </div>
+      {/* Stock warning */}
+      {currentVariantOut && (
+        <p className="text-body-xs text-warmBrown font-medium">
+          Note: Selected size ({selectedSize}) is currently out of stock or requires custom pre-order.
+        </p>
       )}
 
-      {/* Accordion Info Tabs */}
-      <div className="border-t border-border mt-6 divide-y divide-border">
-        {/* Tab 1: Details & Materials */}
+      {/* Buttons */}
+      <div className="flex flex-col gap-3 mt-2">
+        <Button
+          variant="primary"
+          fullWidth
+          disabled={totalOut || currentVariantOut}
+          onClick={handleAddToCart}
+        >
+          {totalOut || currentVariantOut ? 'Out of Stock' : 'Add to Cart'}
+        </Button>
+
+        <div className="flex gap-3">
+          <Button
+            variant="secondary"
+            className="flex-1"
+            disabled={totalOut || currentVariantOut}
+            onClick={handleBuyNow}
+          >
+            Buy Now
+          </Button>
+
+          <button
+            type="button"
+            onClick={handleWishlistToggle}
+            aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+            className={`w-12 h-12 border flex items-center justify-center transition-all ${
+              wishlisted
+                ? 'border-warmBrown text-warmBrown bg-warmBrown/10'
+                : 'border-border text-charcoal-600 hover:border-charcoal hover:text-charcoal'
+            }`}
+          >
+            {wishlisted ? '♥' : '♡'}
+          </button>
+        </div>
+      </div>
+
+      {/* WhatsApp Quick Order / Inquiry */}
+      <a
+        href={getWhatsAppUrl(`Hi Divya! I am interested in ordering ${product.name} (Size: ${selectedSize}).`)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center justify-center gap-2 p-3 text-body-xs font-sans text-charcoal hover:text-warmBrown bg-oatmeal/60 hover:bg-oatmeal border border-border transition-colors text-center"
+      >
+        <span>💬</span> Have sizing questions? Chat directly on WhatsApp
+      </a>
+
+      <div className="h-px bg-border/60 my-2" />
+
+      {/* Product Information Accordions */}
+      <div className="divide-y divide-border/60">
+        {/* Tab 1: Details & Specs */}
         <div className="py-4">
           <button
             onClick={() => setActiveTab(activeTab === 'details' ? '' : 'details')}
             className="w-full flex items-center justify-between text-label-lg uppercase tracking-[0.16em] font-medium text-charcoal text-left"
           >
-            <span>Materials & Handmade Craft</span>
+            <span>Details & Craftsmanship</span>
             <span>{activeTab === 'details' ? '−' : '+'}</span>
           </button>
           {activeTab === 'details' && (
-            <div className="mt-3 text-body-sm text-charcoal-600 font-light leading-relaxed space-y-2 animate-fade-in">
-              <p><strong>Material:</strong> {product.material || '100% Organic Soft Cotton Yarn'}</p>
-              <p><strong>Craftsmanship:</strong> Individually hand-crocheted stitch by stitch. Minor subtle variations are natural signatures of true handmade craft.</p>
+            <div className="mt-3 text-body-sm text-charcoal-600 font-light leading-relaxed animate-fade-in space-y-2">
+              {product.material && <p><strong>Material:</strong> {product.material}</p>}
+              {product.care && <p><strong>Care:</strong> {product.care}</p>}
+              <p>Hand-crafted individually with premium cotton and gentle non-toxic threads safe for delicate baby skin.</p>
             </div>
           )}
         </div>
 
-        {/* Tab 2: Care Instructions */}
+        {/* Tab 2: Customization */}
         <div className="py-4">
           <button
-            onClick={() => setActiveTab(activeTab === 'care' ? '' : 'care')}
+            onClick={() => setActiveTab(activeTab === 'custom' ? '' : 'custom')}
             className="w-full flex items-center justify-between text-label-lg uppercase tracking-[0.16em] font-medium text-charcoal text-left"
           >
-            <span>Care Guide</span>
-            <span>{activeTab === 'care' ? '−' : '+'}</span>
+            <span>Custom Sizing & Personalization</span>
+            <span>{activeTab === 'custom' ? '−' : '+'}</span>
           </button>
-          {activeTab === 'care' && (
-            <div className="mt-3 text-body-sm text-charcoal-600 font-light leading-relaxed animate-fade-in">
-              <p>{product.care || 'Hand wash cold in gentle detergent. Lay flat on clean towel to dry. Do not wring or hang to preserve shape.'}</p>
+          {activeTab === 'custom' && (
+            <div className="mt-3 text-body-sm text-charcoal-600 font-light leading-relaxed animate-fade-in space-y-2">
+              <p>Custom colors, sleeve modifications, and custom measurements available upon request.</p>
+              <p>
+                <a href="/custom-orders" className="text-warmBrown underline font-medium">Request a Custom Order ↗</a>
+              </p>
             </div>
           )}
         </div>
@@ -263,6 +262,11 @@ export default function ProductInfo({ product }) {
           )}
         </div>
       </div>
+
+      <SizeGuideModal
+        isOpen={isSizeGuideOpen}
+        onClose={() => setIsSizeGuideOpen(false)}
+      />
     </div>
   );
 }
