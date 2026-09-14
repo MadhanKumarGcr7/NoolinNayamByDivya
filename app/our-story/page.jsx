@@ -55,7 +55,7 @@ export default function OurStoryPage() {
   return (
     <div className="pt-28 pb-20 bg-ivory">
       {/* Page Header */}
-      <div className="bg-cream border-b border-border/60 py-20 mb-20">
+      <div className="bg-mocha-gradient border-b border-border/60 py-20 mb-20 shadow-warm-xs">
         <div className="editorial-container text-center">
           <SectionHeading
             label="Our Beginnings"

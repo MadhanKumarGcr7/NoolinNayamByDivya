@@ -1,5 +1,7 @@
 'use client';
 
+import StarBorder from '@/components/ui/StarBorder';
+
 const trustBadges = [
   {
     id: 'handmade-love',
@@ -168,16 +170,53 @@ export default function TrustBadgesSection() {
         </div>
 
         {/* Tamil & English Motto Banner */}
-        <div className="relative py-8 px-6 sm:px-12 rounded-2xl bg-[#2A2623] text-ivory text-center border border-warmBrown/20 shadow-warm-lg overflow-hidden max-w-4xl mx-auto">
-          {/* Decorative Floral Borders Left & Right */}
-          <div className="hidden sm:flex items-center justify-between absolute inset-x-6 top-1/2 -translate-y-1/2 pointer-events-none opacity-40">
-            <svg viewBox="0 0 120 40" className="w-24 h-10 stroke-ivory fill-none">
-              <path d="M0 20 Q30 5 60 20 T120 20 M30 14 Q20 5 15 15 M75 22 Q85 30 95 20" strokeWidth="1" />
-              <circle cx="60" cy="20" r="3" fill="#D98A78" />
+        <StarBorder
+          as="div"
+          className="quote-banner-star-border max-w-4xl mx-auto w-full shadow-warm-lg"
+          color="#E8C9A0"
+          speed="9s"
+          thickness={1}
+          backgroundColor="#211C18"
+          textColor="#F3E9DF"
+          borderColor="#3A312B"
+        >
+          <div className="relative py-8 px-6 sm:px-12 text-center overflow-hidden">
+          {/* Decorative Thread Graphics Left & Right with Live Stitching Animation */}
+          <div className="hidden sm:flex items-center justify-between absolute inset-x-6 top-1/2 -translate-y-1/2 pointer-events-none opacity-90">
+            {/* Left Thread with Fine Needle & French Knot Accent */}
+            <svg viewBox="0 0 150 40" className="w-32 h-10 fill-none text-[#D98A78]">
+              <g className="animate-needle-glide">
+                <path d="M 4 22 L 28 19 L 28 21 Z" fill="currentColor" opacity="0.85" />
+                <ellipse cx="24" cy="20" rx="3.5" ry="1.2" fill="#2A2623" />
+              </g>
+              <path
+                d="M 16 21 C 18 14, 24 11, 27 17 C 30 23, 36 27, 46 19 C 56 11, 66 27, 78 19 C 85 14, 90 14, 92 18 C 94 23, 90 26, 87 23 C 85 20, 89 16, 98 19 C 110 23, 126 16, 144 20"
+                stroke="currentColor"
+                strokeWidth="1.25"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="thread-stitch-left"
+              />
+              <circle cx="68" cy="23" r="1.8" fill="currentColor" className="knot-pop-1" />
+              <circle cx="118" cy="20" r="1.5" fill="currentColor" className="knot-pop-2" />
             </svg>
-            <svg viewBox="0 0 120 40" className="w-24 h-10 stroke-ivory fill-none transform rotate-180">
-              <path d="M0 20 Q30 5 60 20 T120 20 M30 14 Q20 5 15 15 M75 22 Q85 30 95 20" strokeWidth="1" />
-              <circle cx="60" cy="20" r="3" fill="#D98A78" />
+
+            {/* Right Thread with Fine Needle & French Knot Accent (Mirrored) */}
+            <svg viewBox="0 0 150 40" className="w-32 h-10 fill-none text-[#D98A78] transform scale-x-[-1]">
+              <g className="animate-needle-glide">
+                <path d="M 4 22 L 28 19 L 28 21 Z" fill="currentColor" opacity="0.85" />
+                <ellipse cx="24" cy="20" rx="3.5" ry="1.2" fill="#2A2623" />
+              </g>
+              <path
+                d="M 16 21 C 18 14, 24 11, 27 17 C 30 23, 36 27, 46 19 C 56 11, 66 27, 78 19 C 85 14, 90 14, 92 18 C 94 23, 90 26, 87 23 C 85 20, 89 16, 98 19 C 110 23, 126 16, 144 20"
+                stroke="currentColor"
+                strokeWidth="1.25"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="thread-stitch-right"
+              />
+              <circle cx="68" cy="23" r="1.8" fill="currentColor" className="knot-pop-1" />
+              <circle cx="118" cy="20" r="1.5" fill="currentColor" className="knot-pop-2" />
             </svg>
           </div>
 
@@ -196,7 +235,51 @@ export default function TrustBadgesSection() {
               EVERY THREAD IS A POEM
             </p>
           </div>
+
+          <style jsx>{`
+            .thread-stitch-left {
+              stroke-dasharray: 220;
+              stroke-dashoffset: 220;
+              animation: stitchDraw 2.4s cubic-bezier(0.4, 0, 0.2, 1) forwards, threadFlow 4s ease-in-out infinite 2.5s;
+            }
+            .thread-stitch-right {
+              stroke-dasharray: 220;
+              stroke-dashoffset: 220;
+              animation: stitchDraw 2.4s cubic-bezier(0.4, 0, 0.2, 1) 0.3s forwards, threadFlow 4s ease-in-out infinite 2.8s;
+            }
+            .animate-needle-glide {
+              animation: needleGlide 2.8s ease-in-out infinite alternate;
+            }
+            .knot-pop-1 {
+              animation: knotPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 1.1s forwards;
+              opacity: 0;
+            }
+            .knot-pop-2 {
+              animation: knotPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 1.8s forwards;
+              opacity: 0;
+            }
+
+            @keyframes stitchDraw {
+              0% { stroke-dashoffset: 220; }
+              100% { stroke-dashoffset: 0; }
+            }
+            @keyframes needleGlide {
+              0% { transform: translateY(0px) rotate(0deg); }
+              50% { transform: translateY(-1.2px) rotate(-1deg); }
+              100% { transform: translateY(1px) rotate(0.5deg); }
+            }
+            @keyframes knotPop {
+              0% { opacity: 0; transform: scale(0); }
+              70% { opacity: 1; transform: scale(1.3); }
+              100% { opacity: 1; transform: scale(1); }
+            }
+            @keyframes threadFlow {
+              0%, 100% { opacity: 0.85; stroke-dashoffset: 0; }
+              50% { opacity: 1; stroke-dashoffset: -4; }
+            }
+          `}</style>
         </div>
+        </StarBorder>
       </div>
     </section>
   );

@@ -1,6 +1,10 @@
+/**
+ * Admin Navigation Reorder API (MySQL / Prisma)
+ * PATCH /api/admin/navigation/reorder
+ */
+
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/db';
-import NavigationItem from '@/models/NavigationItem';
+import prisma from '@/lib/prisma';
 import { getAuthFromRequest } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -12,7 +16,6 @@ export async function PATCH(request) {
   }
 
   try {
-    await connectDB();
     const body = await request.json();
     const { items } = body;
 
@@ -20,20 +23,29 @@ export async function PATCH(request) {
       return NextResponse.json({ message: 'Invalid payload, items array required' }, { status: 400 });
     }
 
-    const bulkOps = items.map((item) => ({
-      updateOne: {
-        filter: { _id: item.id },
-        update: { $set: { order: item.order } },
-      },
-    }));
-
-    if (bulkOps.length > 0) {
-      await NavigationItem.bulkWrite(bulkOps);
+    for (const item of items) {
+      const id = Number(item.id);
+      if (!isNaN(id)) {
+        await prisma.navigationItem.update({
+          where: { id },
+          data: { display_order: Number(item.order) || 0 },
+        });
+      }
     }
 
-    const updatedList = await NavigationItem.find({}).sort({ order: 1 }).lean();
+    const updatedList = await prisma.navigationItem.findMany({
+      orderBy: { display_order: 'asc' },
+    });
 
-    return NextResponse.json({ success: true, items: updatedList });
+    return NextResponse.json({
+      success: true,
+      items: updatedList.map(item => ({
+        _id: String(item.id),
+        id: String(item.id),
+        label: item.label,
+        order: item.display_order,
+      })),
+    });
   } catch (error) {
     console.error('[API/Admin/Navigation/Reorder PATCH Error]:', error);
     return NextResponse.json({ message: 'Server error reordering nav items' }, { status: 500 });

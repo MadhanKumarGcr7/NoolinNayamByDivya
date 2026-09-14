@@ -36,6 +36,16 @@ export default function AdminDesignGalleryPage() {
   const [editVisible, setEditVisible]     = useState(true);
   const [savingEdit, setSavingEdit]       = useState(false);
 
+  // Tab State: 'images' | 'products'
+  const [activeTab, setActiveTab] = useState('images');
+
+  // Product Picker State
+  const [products, setProducts]                     = useState([]);
+  const [productsLoading, setProductsLoading]         = useState(false);
+  const [productSearch, setProductSearch]           = useState('');
+  const [productFilter, setProductFilter]           = useState('all'); // all | selected | unselected
+  const [updatingProductId, setUpdatingProductId] = useState(null);
+
   // Load Data
   const fetchData = async () => {
     setLoading(true);
@@ -64,9 +74,88 @@ export default function AdminDesignGalleryPage() {
     }
   };
 
+  const fetchProductsData = async () => {
+    setProductsLoading(true);
+    try {
+      const query = new URLSearchParams();
+      if (productSearch) query.set('q', productSearch);
+      if (productFilter) query.set('filter', productFilter);
+
+      const res = await fetch(`/api/admin/design-gallery/products?${query.toString()}`, {
+        credentials: 'include',
+      });
+      const data = await res.json();
+      setProducts(data.products || []);
+    } catch (err) {
+      console.error('Failed to load products for design gallery:', err);
+    } finally {
+      setProductsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchData();
   }, [selectedCat, search]);
+
+  useEffect(() => {
+    if (activeTab === 'products') {
+      fetchProductsData();
+    }
+  }, [activeTab, productSearch, productFilter]);
+
+  // Product Design Gallery Quick Toggle
+  const handleProductGalleryToggle = async (product, newShowState) => {
+    setUpdatingProductId(product.id);
+    try {
+      const defaultGalleryCat = categories[0]?.name || 'Finished Garments';
+      const res = await fetch('/api/admin/design-gallery/products', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: product.id,
+          showInDesignGallery: newShowState,
+          designGalleryCategory: product.designGalleryCategory || defaultGalleryCat,
+        }),
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (res.ok && data.product) {
+        setProducts((prev) =>
+          prev.map((p) => (p.id === product.id ? { ...p, ...data.product } : p))
+        );
+      }
+    } catch (err) {
+      console.error('Failed to update product gallery toggle:', err);
+    } finally {
+      setUpdatingProductId(null);
+    }
+  };
+
+  // Product Design Gallery Category Change
+  const handleProductCategoryChange = async (product, newCategory) => {
+    setUpdatingProductId(product.id);
+    try {
+      const res = await fetch('/api/admin/design-gallery/products', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: product.id,
+          designGalleryCategory: newCategory,
+        }),
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (res.ok && data.product) {
+        setProducts((prev) =>
+          prev.map((p) => (p.id === product.id ? { ...p, ...data.product } : p))
+        );
+      }
+    } catch (err) {
+      console.error('Failed to update product gallery category:', err);
+    } finally {
+      setUpdatingProductId(null);
+    }
+  };
 
   // Handle Image Upload & Submit
   const handleUploadSubmit = async (e) => {
@@ -261,141 +350,329 @@ export default function AdminDesignGalleryPage() {
         </div>
       </div>
 
-      {/* Filters Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-cream p-4 border border-border">
-        {/* Search */}
-        <div className="flex-1 max-w-md relative">
-          <input
-            type="text"
-            placeholder="Search captions or tags..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full px-4 py-2 bg-ivory border border-border text-body-xs font-sans focus:outline-none focus:border-warmBrown"
-          />
-        </div>
+      {/* Tab Switcher */}
+      <div className="flex border-b border-border space-x-6 sm:space-x-8">
+        <button
+          onClick={() => setActiveTab('images')}
+          className={`pb-3 text-label-md uppercase tracking-[0.14em] font-sans font-medium transition-colors border-b-2 -mb-px flex items-center gap-2 ${
+            activeTab === 'images'
+              ? 'border-warmBrown text-warmBrown font-semibold'
+              : 'border-transparent text-charcoal-500 hover:text-charcoal'
+          }`}
+        >
+          <span>🖼️ Uploaded Inspiration</span>
+          <span className="px-2 py-0.5 text-[10px] bg-cream border border-border/80 rounded-xs">
+            {images.length}
+          </span>
+        </button>
 
-        {/* Category Filter Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 sm:pb-0">
-          <button
-            onClick={() => setSelectedCat('')}
-            className={`px-3 py-1.5 text-label-md uppercase tracking-[0.14em] font-sans font-medium transition-colors border ${
-              selectedCat === ''
-                ? 'bg-charcoal text-ivory border-charcoal'
-                : 'bg-ivory text-charcoal-600 border-border hover:border-charcoal'
-            }`}
-          >
-            All ({images.length})
-          </button>
-          {categories.map((cat) => (
-            <button
-              key={cat._id}
-              onClick={() => setSelectedCat(cat.name)}
-              className={`px-3 py-1.5 text-label-md uppercase tracking-[0.14em] font-sans font-medium transition-colors border whitespace-nowrap ${
-                selectedCat === cat.name
-                  ? 'bg-charcoal text-ivory border-charcoal'
-                  : 'bg-ivory text-charcoal-600 border-border hover:border-charcoal'
-              }`}
-            >
-              {cat.name}
-            </button>
-          ))}
-        </div>
+        <button
+          onClick={() => setActiveTab('products')}
+          className={`pb-3 text-label-md uppercase tracking-[0.14em] font-sans font-medium transition-colors border-b-2 -mb-px flex items-center gap-2 ${
+            activeTab === 'products'
+              ? 'border-warmBrown text-warmBrown font-semibold'
+              : 'border-transparent text-charcoal-500 hover:text-charcoal'
+          }`}
+        >
+          <span>🛍️ Products in Gallery</span>
+          <span className="px-2 py-0.5 text-[10px] bg-warmBrown/10 text-warmBrown font-medium rounded-xs border border-warmBrown/30">
+            {products.filter((p) => p.showInDesignGallery).length} Selected
+          </span>
+        </button>
       </div>
 
-      {/* Gallery Grid View */}
-      {loading ? (
-        <div className="py-20 text-center">
-          <div className="w-8 h-8 border-2 border-warmBrown border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-body-xs text-charcoal-400 font-light">Loading design inspiration gallery...</p>
-        </div>
-      ) : images.length === 0 ? (
-        <div className="bg-cream border border-border p-12 text-center max-w-md mx-auto">
-          <div className="w-12 h-12 rounded-full bg-warmBrown/10 text-warmBrown flex items-center justify-center mx-auto mb-4">
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Z" />
-            </svg>
+      {/* TAB 1: UPLOADED IMAGES VIEW */}
+      {activeTab === 'images' && (
+        <>
+          {/* Filters Bar */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-cream p-4 border border-border">
+            {/* Search */}
+            <div className="flex-1 max-w-md relative">
+              <input
+                type="text"
+                placeholder="Search captions or tags..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full px-4 py-2 bg-ivory border border-border text-body-xs font-sans focus:outline-none focus:border-warmBrown"
+              />
+            </div>
+
+            {/* Category Filter Pills */}
+            <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 sm:pb-0">
+              <button
+                onClick={() => setSelectedCat('')}
+                className={`px-3 py-1.5 text-label-md uppercase tracking-[0.14em] font-sans font-medium transition-colors border ${
+                  selectedCat === ''
+                    ? 'bg-charcoal text-ivory border-charcoal'
+                    : 'bg-ivory text-charcoal-600 border-border hover:border-charcoal'
+                }`}
+              >
+                All ({images.length})
+              </button>
+              {categories.map((cat) => (
+                <button
+                  key={cat._id}
+                  onClick={() => setSelectedCat(cat.name)}
+                  className={`px-3 py-1.5 text-label-md uppercase tracking-[0.14em] font-sans font-medium transition-colors border whitespace-nowrap ${
+                    selectedCat === cat.name
+                      ? 'bg-charcoal text-ivory border-charcoal'
+                      : 'bg-ivory text-charcoal-600 border-border hover:border-charcoal'
+                  }`}
+                >
+                  {cat.name}
+                </button>
+              ))}
+            </div>
           </div>
-          <h3 className="font-serif text-xl font-light text-charcoal mb-2">No Gallery Images Found</h3>
-          <p className="text-body-xs text-charcoal-600 font-light mb-6">
-            Upload design elements such as necklines, sleeves, or pattern motifs to build your customer inspiration library.
-          </p>
-          <Button variant="primary" size="md" onClick={() => setShowUploadModal(true)}>
-            Upload Inspiration Images
-          </Button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
-          {images.map((img) => (
-            <div
-              key={img._id}
-              className={`group bg-cream border transition-all duration-300 flex flex-col justify-between overflow-hidden shadow-warm-xs ${
-                !img.visible ? 'opacity-60 border-dashed border-charcoal-300' : 'border-border hover:shadow-warm-md'
-              }`}
-            >
-              {/* Image Thumbnail Container */}
-              <div className="relative aspect-square bg-ivory border-b border-border overflow-hidden">
-                <Image
-                  src={img.imageUrl}
-                  alt={img.caption || 'Design Inspiration'}
-                  fill
-                  className="object-cover group-hover:scale-105 transition-transform duration-500"
-                />
 
-                {/* Category Badge */}
-                <span className="absolute top-2 left-2 px-2 py-0.5 bg-ivory/90 backdrop-blur-sm text-charcoal text-[10px] uppercase tracking-[0.14em] font-sans font-medium border border-border shadow-sm">
-                  {img.category}
-                </span>
-
-                {/* Visibility Badge */}
-                {!img.visible && (
-                  <span className="absolute top-2 right-2 px-2 py-0.5 bg-charcoal text-ivory text-[9px] uppercase tracking-[0.14em] font-sans font-medium shadow-sm">
-                    Hidden
-                  </span>
-                )}
+          {/* Gallery Grid View */}
+          {loading ? (
+            <div className="py-20 text-center">
+              <div className="w-8 h-8 border-2 border-warmBrown border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+              <p className="text-body-xs text-charcoal-400 font-light">Loading design inspiration gallery...</p>
+            </div>
+          ) : images.length === 0 ? (
+            <div className="bg-cream border border-border p-12 text-center max-w-md mx-auto">
+              <div className="w-12 h-12 rounded-full bg-warmBrown/10 text-warmBrown flex items-center justify-center mx-auto mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Z" />
+                </svg>
               </div>
+              <h3 className="font-serif text-xl font-light text-charcoal mb-2">No Gallery Images Found</h3>
+              <p className="text-body-xs text-charcoal-600 font-light mb-6">
+                Upload design elements such as necklines, sleeves, or pattern motifs to build your customer inspiration library.
+              </p>
+              <Button variant="primary" size="md" onClick={() => setShowUploadModal(true)}>
+                Upload Inspiration Images
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
+              {images.map((img) => (
+                <div
+                  key={img._id}
+                  className={`group bg-cream border transition-all duration-300 flex flex-col justify-between overflow-hidden shadow-warm-xs ${
+                    !img.visible ? 'opacity-60 border-dashed border-charcoal-300' : 'border-border hover:shadow-warm-md'
+                  }`}
+                >
+                  {/* Image Thumbnail Container */}
+                  <div className="relative aspect-square bg-ivory border-b border-border overflow-hidden">
+                    <Image
+                      src={img.imageUrl}
+                      alt={img.caption || 'Design Inspiration'}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
 
-              {/* Information & Actions Footer */}
-              <div className="p-3 flex-1 flex flex-col justify-between space-y-2">
-                <div>
-                  <p className="text-body-xs font-sans font-medium text-charcoal line-clamp-1">
-                    {img.caption || 'Untitled Detail'}
-                  </p>
-                  {img.tags && img.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {img.tags.slice(0, 3).map((tag, idx) => (
-                        <span key={idx} className="text-[10px] text-charcoal-500 font-light bg-ivory px-1.5 py-0.5 border border-border/50">
-                          #{tag}
-                        </span>
-                      ))}
+                    {/* Category Badge */}
+                    <span className="absolute top-2 left-2 px-2 py-0.5 bg-ivory/90 backdrop-blur-sm text-charcoal text-[10px] uppercase tracking-[0.14em] font-sans font-medium border border-border shadow-sm">
+                      {img.category}
+                    </span>
+
+                    {/* Visibility Badge */}
+                    {!img.visible && (
+                      <span className="absolute top-2 right-2 px-2 py-0.5 bg-charcoal text-ivory text-[9px] uppercase tracking-[0.14em] font-sans font-medium shadow-sm">
+                        Hidden
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Information & Actions Footer */}
+                  <div className="p-3 flex-1 flex flex-col justify-between space-y-2">
+                    <div>
+                      <p className="text-body-xs font-sans font-medium text-charcoal line-clamp-1">
+                        {img.caption || 'Untitled Detail'}
+                      </p>
+                      {img.tags && img.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {img.tags.slice(0, 3).map((tag, idx) => (
+                            <span key={idx} className="text-[10px] text-charcoal-500 font-light bg-ivory px-1.5 py-0.5 border border-border/50">
+                              #{tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
 
-                <div className="pt-2 border-t border-border/50 flex items-center justify-between text-body-xs font-sans">
-                  <button
-                    onClick={() => toggleVisibility(img)}
-                    className="text-label-md uppercase tracking-[0.14em] text-charcoal-600 hover:text-warmBrown transition-colors"
-                  >
-                    {img.visible ? 'Hide' : 'Show'}
-                  </button>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => openEditModal(img)}
-                      className="text-label-md uppercase tracking-[0.14em] text-warmBrown hover:text-charcoal transition-colors"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDeleteImage(img._id)}
-                      className="text-label-md uppercase tracking-[0.14em] text-blush-dark hover:text-red-700 transition-colors"
-                    >
-                      Delete
-                    </button>
+                    <div className="pt-2 border-t border-border/50 flex items-center justify-between text-body-xs font-sans">
+                      <button
+                        onClick={() => toggleVisibility(img)}
+                        className="text-label-md uppercase tracking-[0.14em] text-charcoal-600 hover:text-warmBrown transition-colors"
+                      >
+                        {img.visible ? 'Hide' : 'Show'}
+                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => openEditModal(img)}
+                          className="text-label-md uppercase tracking-[0.14em] text-warmBrown hover:text-charcoal transition-colors"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteImage(img._id)}
+                          className="text-label-md uppercase tracking-[0.14em] text-blush-dark hover:text-red-700 transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
+              ))}
             </div>
-          ))}
+          )}
+        </>
+      )}
+
+      {/* TAB 2: CATALOG PRODUCTS VIEW */}
+      {activeTab === 'products' && (
+        <div className="space-y-6">
+          {/* Products Filter Bar */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-cream p-4 border border-border">
+            <div className="flex-1 max-w-md relative">
+              <input
+                type="text"
+                placeholder="Search products by name or category..."
+                value={productSearch}
+                onChange={(e) => setProductSearch(e.target.value)}
+                className="w-full px-4 py-2 bg-ivory border border-border text-body-xs font-sans focus:outline-none focus:border-warmBrown"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-body-xs font-sans text-charcoal-500">Filter:</span>
+              <button
+                onClick={() => setProductFilter('all')}
+                className={`px-3 py-1.5 text-label-md uppercase tracking-[0.14em] font-sans font-medium border ${
+                  productFilter === 'all'
+                    ? 'bg-charcoal text-ivory border-charcoal'
+                    : 'bg-ivory text-charcoal-600 border-border hover:border-charcoal'
+                }`}
+              >
+                All ({products.length})
+              </button>
+              <button
+                onClick={() => setProductFilter('selected')}
+                className={`px-3 py-1.5 text-label-md uppercase tracking-[0.14em] font-sans font-medium border ${
+                  productFilter === 'selected'
+                    ? 'bg-warmBrown text-ivory border-warmBrown'
+                    : 'bg-ivory text-charcoal-600 border-border hover:border-warmBrown'
+                }`}
+              >
+                In Gallery ({products.filter((p) => p.showInDesignGallery).length})
+              </button>
+              <button
+                onClick={() => setProductFilter('unselected')}
+                className={`px-3 py-1.5 text-label-md uppercase tracking-[0.14em] font-sans font-medium border ${
+                  productFilter === 'unselected'
+                    ? 'bg-charcoal text-ivory border-charcoal'
+                    : 'bg-ivory text-charcoal-600 border-border hover:border-charcoal'
+                }`}
+              >
+                Not In Gallery
+              </button>
+            </div>
+          </div>
+
+          {/* Products Grid */}
+          {productsLoading ? (
+            <div className="py-20 text-center">
+              <div className="w-8 h-8 border-2 border-warmBrown border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+              <p className="text-body-xs text-charcoal-400 font-light">Loading catalog products...</p>
+            </div>
+          ) : products.length === 0 ? (
+            <div className="bg-cream border border-border p-12 text-center max-w-md mx-auto">
+              <h3 className="font-serif text-xl font-light text-charcoal mb-2">No Matching Products</h3>
+              <p className="text-body-xs text-charcoal-600 font-light">
+                No catalog products found matching your current search or filter criteria.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {products.map((prod) => {
+                const isUpdating = updatingProductId === prod.id;
+                const defaultCat = categories[0]?.name || 'Finished Garments';
+                const currentGalleryCat = prod.designGalleryCategory || defaultCat;
+
+                return (
+                  <div
+                    key={prod.id}
+                    className={`bg-cream border p-4 transition-all duration-300 flex items-start gap-4 rounded-xs shadow-warm-xs ${
+                      prod.showInDesignGallery
+                        ? 'border-warmBrown/60 bg-warmBrown/5'
+                        : 'border-border opacity-85 hover:opacity-100'
+                    }`}
+                  >
+                    {/* Thumbnail */}
+                    <div className="relative w-20 h-24 bg-ivory border border-border flex-shrink-0 overflow-hidden">
+                      <Image
+                        src={prod.image}
+                        alt={prod.name}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+
+                    {/* Controls */}
+                    <div className="flex-1 flex flex-col justify-between space-y-3 min-w-0">
+                      <div>
+                        <div className="flex items-center justify-between gap-2">
+                          <h4 className="text-body-sm font-sans font-medium text-charcoal truncate">
+                            {prod.name}
+                          </h4>
+                          <span className="text-[10px] uppercase font-sans tracking-wider px-1.5 py-0.5 bg-ivory border border-border/60 text-charcoal-500 flex-shrink-0">
+                            {prod.categoryName}
+                          </span>
+                        </div>
+                        <p className="text-body-xs font-sans text-warmBrown font-medium mt-0.5">
+                          ₹{prod.price}
+                        </p>
+                      </div>
+
+                      {/* Toggle & Dropdown Section */}
+                      <div className="space-y-2 pt-2 border-t border-border/50">
+                        {/* Toggle Checkbox */}
+                        <label className="flex items-center gap-2 cursor-pointer text-body-xs font-sans font-medium text-charcoal select-none">
+                          <input
+                            type="checkbox"
+                            checked={prod.showInDesignGallery}
+                            disabled={isUpdating}
+                            onChange={(e) => handleProductGalleryToggle(prod, e.target.checked)}
+                            className="w-4 h-4 text-warmBrown border-border rounded focus:ring-warmBrown cursor-pointer"
+                          />
+                          <span>Show in Design Gallery</span>
+                          {isUpdating && (
+                            <div className="w-3 h-3 border-2 border-warmBrown border-t-transparent rounded-full animate-spin ml-auto" />
+                          )}
+                        </label>
+
+                        {/* Gallery Category Selector */}
+                        {prod.showInDesignGallery && (
+                          <div className="flex items-center gap-2 pt-1 animate-fade-in">
+                            <span className="text-[11px] font-sans text-charcoal-500 flex-shrink-0">
+                              Gallery Section:
+                            </span>
+                            <select
+                              value={currentGalleryCat}
+                              disabled={isUpdating}
+                              onChange={(e) => handleProductCategoryChange(prod, e.target.value)}
+                              className="w-full text-[11px] font-sans bg-ivory border border-border px-2 py-1 focus:outline-none focus:border-warmBrown text-charcoal"
+                            >
+                              {categories.map((c) => (
+                                <option key={c._id} value={c.name}>
+                                  {c.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

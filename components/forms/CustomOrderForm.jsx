@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Input, { Textarea, Select } from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import useCartStore from '@/store/cartStore';
@@ -25,13 +26,17 @@ const ageRanges = [
   { value: 'custom-measurements', label: 'Custom Measurements (will provide)' },
 ];
 
-export default function CustomOrderForm() {
+export default function CustomOrderForm({ initialBaseProduct = null }) {
+  const searchParams = useSearchParams();
   const addItem = useCartStore((state) => state.addItem);
+
+  const [baseProduct, setBaseProduct] = useState(initialBaseProduct);
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
-    productType: '',
+    productType: initialBaseProduct?.name ? `Customization: ${initialBaseProduct.name}` : '',
     ageGroup: '',
     customSize: '',
     preferredColor: '',
@@ -49,6 +54,23 @@ export default function CustomOrderForm() {
   const [submittedId, setSubmittedId] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
 
+  // Sync base product from URL search params if present
+  useEffect(() => {
+    const paramBaseId = searchParams.get('baseProductId');
+    const paramBaseName = searchParams.get('baseProductName');
+
+    if (paramBaseId && paramBaseName && !baseProduct) {
+      setBaseProduct({
+        id: paramBaseId,
+        name: paramBaseName,
+      });
+      setFormData((prev) => ({
+        ...prev,
+        productType: prev.productType || `Customization: ${paramBaseName}`,
+      }));
+    }
+  }, [searchParams, baseProduct]);
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -59,13 +81,14 @@ export default function CustomOrderForm() {
     setStatus(null);
     setErrorMsg(null);
 
-    // Validate that at least one of [written requirements, gallery images, reference upload] is present
+    // Validate that at least one of [written requirements, gallery images, reference upload, base product] is present
     const hasText = Boolean(formData.requirements && formData.requirements.trim());
     const hasGallery = selectedGalleryImages.length > 0;
     const hasFile = Boolean(referenceFile);
+    const hasBase = Boolean(baseProduct);
 
-    if (!hasText && !hasGallery && !hasFile) {
-      setErrorMsg('Please share your design vision by selecting gallery inspiration elements, uploading a reference photo, or writing custom requirements.');
+    if (!hasText && !hasGallery && !hasFile && !hasBase) {
+      setErrorMsg('Please share your design vision by selecting a base product, gallery inspiration elements, uploading a reference photo, or writing custom requirements.');
       setLoading(false);
       return;
     }
@@ -94,6 +117,8 @@ export default function CustomOrderForm() {
       // Submit custom order payload
       const payload = {
         ...formData,
+        baseProductId: baseProduct?.id || null,
+        baseProductNameSnapshot: baseProduct?.name || null,
         selectedGalleryImages,
         referenceImageUrl: uploadedRefUrl,
       };
@@ -231,9 +256,40 @@ export default function CustomOrderForm() {
 
           {/* Section 2: Custom Garment Specifications */}
           <div>
-            <h3 className="font-serif font-light text-charcoal text-xl border-b border-border pb-2 mb-4">
-              2. Design & Sizing Details
-            </h3>
+            <div className="border-b border-border pb-2 mb-4">
+              <h3 className="font-serif font-light text-charcoal text-xl">
+                2. Design & Sizing Details
+              </h3>
+            </div>
+
+            {/* Base Product Banner if attached */}
+            {baseProduct && (
+              <div className="bg-sage-light/60 border border-sage p-4 rounded-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-5">
+                <div className="flex items-center gap-3">
+                  <span className="px-2.5 py-1 text-label-xs uppercase tracking-wider font-semibold bg-sage text-charcoal rounded-xs flex-shrink-0">
+                    Base Piece Selected
+                  </span>
+                  <div>
+                    <p className="text-body-sm font-medium text-charcoal">
+                      Customizing: <span className="font-semibold text-warmBrown">{baseProduct.name}</span>
+                    </p>
+                    <p className="text-body-xs text-charcoal-500 font-light">
+                      This request is pre-attached to your selected shop piece.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBaseProduct(null);
+                    setFormData((prev) => ({ ...prev, productType: '' }));
+                  }}
+                  className="text-label-xs uppercase font-medium text-warmBrown hover:text-charcoal underline flex-shrink-0"
+                >
+                  Remove Base Selection
+                </button>
+              </div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
               <Select
                 label="Product Type"

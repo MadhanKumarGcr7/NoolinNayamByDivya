@@ -1,14 +1,10 @@
 /**
- * Admin Single Custom Request API
+ * Admin Single Custom Request API (MySQL / Prisma)
  * PATCH /api/admin/custom-requests/[id]
- * ────────────────────────────────────────────────────────────────────────────
- * Updates status, quoted price, and owner notes for a custom request.
- * Protected: owner JWT (security layer).
  */
 
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/db';
-import CustomOrderRequest from '@/models/CustomOrderRequest';
+import prisma from '@/lib/prisma';
 import { requireAuth, applySecurityHeaders, handleApiError } from '@/lib/security';
 
 export const dynamic = 'force-dynamic';
@@ -21,37 +17,35 @@ export async function PATCH(request, { params }) {
       return applySecurityHeaders(resp, request);
     }
 
-    await connectDB();
-    const id = params?.id;
-    const body = await request.json();
-
-    const updateFields = {};
-
-    const validStatuses = ['New', 'Reviewed', 'In Progress', 'Completed', 'Declined'];
-    if (body.status && validStatuses.includes(body.status)) {
-      updateFields.status = body.status;
-    }
-
-    if (body.quotedPrice !== undefined && !isNaN(body.quotedPrice)) {
-      updateFields.quotedPrice = Math.max(0, parseFloat(body.quotedPrice) || 0);
-    }
-
-    if (body.ownerResponse !== undefined) {
-      updateFields.ownerResponse = body.ownerResponse.toString().trim();
-    }
-
-    const customRequest = await CustomOrderRequest.findByIdAndUpdate(
-      id,
-      { $set: updateFields },
-      { new: true }
-    ).lean();
-
-    if (!customRequest) {
+    const id = Number(params?.id);
+    if (isNaN(id)) {
       const resp = NextResponse.json({ message: 'Custom request not found' }, { status: 404 });
       return applySecurityHeaders(resp, request);
     }
 
-    const resp = NextResponse.json({ success: true, request: customRequest });
+    const body = await request.json();
+    const data = {};
+
+    if (body.status) data.status = body.status;
+    if (body.ownerResponse !== undefined) data.owner_response = body.ownerResponse.toString().trim();
+    if (body.quotedPrice !== undefined) data.quoted_price = Number(body.quotedPrice) || 0;
+
+    const customRequest = await prisma.customOrderRequest.update({
+      where: { id },
+      data,
+    });
+
+    const resp = NextResponse.json({
+      success: true,
+      request: {
+        _id: String(customRequest.id),
+        id: String(customRequest.id),
+        status: customRequest.status,
+        additionalNotes: customRequest.additional_notes,
+        ownerResponse: customRequest.owner_response,
+        quotedPrice: customRequest.quoted_price ? Number(customRequest.quoted_price) : 0,
+      },
+    });
     return applySecurityHeaders(resp, request);
 
   } catch (error) {

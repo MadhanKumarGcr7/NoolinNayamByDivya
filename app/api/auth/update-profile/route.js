@@ -1,21 +1,18 @@
 /**
- * Update Profile API
- * PUT /api/auth/update-profile
+ * Update Profile API — PUT /api/auth/update-profile (MySQL / Prisma)
  * ────────────────────────────────────────────────────────────────────────────
  * Protected: requires valid customer JWT.
- * Updates name, phone, and addresses. Email changes are not allowed here.
+ * Updates name, phone, and addresses.
  */
 
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/db';
-import User from '@/models/User';
+import prisma from '@/lib/prisma';
 import { getAuthFromRequest } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function PUT(request) {
   try {
-    // ── Auth check ──────────────────────────────────────────────────────
     const auth = getAuthFromRequest(request, 'customer');
     if (!auth) {
       return NextResponse.json(
@@ -24,47 +21,61 @@ export async function PUT(request) {
       );
     }
 
-    await connectDB();
+    const userId = Number(auth.userId);
+    if (isNaN(userId)) {
+      return NextResponse.json({ message: 'Invalid user session.' }, { status: 401 });
+    }
 
     const body = await request.json();
     const { name, phone, addresses } = body;
 
-    // Build update object — only include fields that were provided
-    const update = {};
-    if (name !== undefined)      update.name = name.trim();
-    if (phone !== undefined)     update.phone = phone.trim();
-    if (addresses !== undefined) update.addresses = addresses;
+    const data = {};
+    if (name !== undefined) data.name = name.trim();
+    if (phone !== undefined) data.phone = phone.trim();
 
-    if (Object.keys(update).length === 0) {
-      return NextResponse.json(
-        { message: 'No fields to update.' },
-        { status: 400 }
-      );
+    if (Object.keys(data).length > 0) {
+      await prisma.user.update({
+        where: { id: userId },
+        data,
+      });
     }
 
-    const user = await User.findByIdAndUpdate(
-      auth.userId,
-      { $set: update },
-      { new: true, runValidators: true }
-    ).select('-passwordHash -resetPasswordToken -resetPasswordExpires');
+    if (Array.isArray(addresses)) {
+      await prisma.address.deleteMany({ where: { user_id: userId } });
+      for (const addr of addresses) {
+        await prisma.address.create({
+          data: {
+            user_id: userId,
+            line1: addr.street || addr.line1 || 'Address Line 1',
+            line2: addr.line2 || null,
+            city: addr.city || 'City',
+            state: addr.state || 'State',
+            pincode: addr.pincode || '000000',
+            country: addr.country || 'India',
+            is_default: !!addr.isDefault || !!addr.is_default,
+          },
+        });
+      }
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { addresses: true },
+    });
 
     if (!user) {
-      return NextResponse.json(
-        { message: 'User not found.' },
-        { status: 404 }
-      );
+      return NextResponse.json({ message: 'User not found.' }, { status: 404 });
     }
 
     return NextResponse.json({
       success: true,
       user: {
-        id:        user._id,
-        name:      user.name,
-        email:     user.email,
-        phone:     user.phone,
-        role:      user.role,
+        id: String(user.id),
+        name: user.name,
+        email: user.email,
+        phone: user.phone || '',
+        role: user.role,
         addresses: user.addresses,
-        wishlist:  user.wishlist,
       },
     });
 

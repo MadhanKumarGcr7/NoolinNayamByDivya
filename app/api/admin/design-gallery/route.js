@@ -1,12 +1,9 @@
 /**
- * Admin Design Gallery API — GET & POST /api/admin/design-gallery
- * ────────────────────────────────────────────────────────────────────────────
- * Hardened design gallery retrieval and creation. Protected: owner authentication required.
+ * Admin Design Gallery API — GET & POST /api/admin/design-gallery (MySQL / Prisma)
  */
 
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/db';
-import DesignGalleryImage from '@/models/DesignGalleryImage';
+import prisma from '@/lib/prisma';
 import {
   requireAuth,
   sanitizeInput,
@@ -26,23 +23,37 @@ export async function GET(request) {
       return applySecurityHeaders(resp, request);
     }
 
-    await connectDB();
     const { searchParams } = new URL(request.url);
     const category = sanitizeInput(searchParams.get('category') || '');
     const q = sanitizeInput(searchParams.get('q') || '');
 
-    const filter = {};
-    if (category) filter.category = category;
+    const where = {};
+    if (category) {
+      where.category = { name: category };
+    }
     if (q) {
-      const safeRegex = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      filter.$or = [
-        { caption: { $regex: safeRegex, $options: 'i' } },
-        { tags: { $regex: safeRegex, $options: 'i' } },
-        { category: { $regex: safeRegex, $options: 'i' } },
+      where.OR = [
+        { caption: { contains: q } },
+        { category: { name: { contains: q } } },
       ];
     }
 
-    const images = await DesignGalleryImage.find(filter).sort({ createdAt: -1 });
+    const rawImages = await prisma.designGalleryImage.findMany({
+      where,
+      include: { category: true },
+      orderBy: { created_at: 'desc' },
+    });
+
+    const images = rawImages.map(img => ({
+      _id: String(img.id),
+      id: String(img.id),
+      imageUrl: img.image_url,
+      category: img.category.name,
+      caption: img.caption || '',
+      tags: Array.isArray(img.tags) ? img.tags : [],
+      visible: img.visible,
+      createdAt: img.created_at,
+    }));
 
     const response = NextResponse.json({ success: true, images });
     return applySecurityHeaders(response, request);
@@ -59,11 +70,10 @@ export async function POST(request) {
       return applySecurityHeaders(resp, request);
     }
 
-    await connectDB();
     const { body } = await sanitizeRequestData(request);
-    const { imageUrl, category, tags, caption, visible } = body;
+    const { imageUrl, category: categoryName, tags, caption, visible } = body;
 
-    if (!imageUrl || !category) {
+    if (!imageUrl || !categoryName) {
       const resp = NextResponse.json(
         { error: 'Image URL and Category are required.' },
         { status: 400 }
@@ -71,12 +81,30 @@ export async function POST(request) {
       return applySecurityHeaders(resp, request);
     }
 
-    const newImage = await DesignGalleryImage.create({
-      imageUrl,
-      category,
-      tags: Array.isArray(tags) ? tags : typeof tags === 'string' ? tags.split(',').map((t) => t.trim()) : [],
-      caption: caption ? String(caption).trim() : '',
-      visible: visible !== undefined ? Boolean(visible) : true,
+    let cat = await prisma.designGalleryCategory.findFirst({
+      where: { name: categoryName },
+    });
+
+    if (!cat) {
+      cat = await prisma.designGalleryCategory.create({
+        data: { name: categoryName },
+      });
+    }
+
+    const tagList = Array.isArray(tags)
+      ? tags
+      : typeof tags === 'string'
+      ? tags.split(',').map((t) => t.trim())
+      : [];
+
+    const newImage = await prisma.designGalleryImage.create({
+      data: {
+        category_id: cat.id,
+        image_url: imageUrl,
+        tags: tagList,
+        caption: caption ? String(caption).trim() : null,
+        visible: visible !== undefined ? Boolean(visible) : true,
+      },
     });
 
     logSecurityEvent({
@@ -85,10 +113,18 @@ export async function POST(request) {
       role: 'owner',
       path: '/api/admin/design-gallery',
       outcome: 'SUCCESS',
-      details: { imageId: newImage._id.toString(), category },
+      details: { imageId: String(newImage.id), category: categoryName },
     });
 
-    const response = NextResponse.json({ success: true, image: newImage });
+    const response = NextResponse.json({
+      success: true,
+      image: {
+        _id: String(newImage.id),
+        id: String(newImage.id),
+        imageUrl: newImage.image_url,
+        category: categoryName,
+      },
+    });
     return applySecurityHeaders(response, request);
   } catch (error) {
     return handleApiError(error, request);

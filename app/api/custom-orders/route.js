@@ -1,13 +1,12 @@
 /**
- * Custom Orders API — POST /api/custom-orders
+ * Custom Orders API — POST /api/custom-orders (MySQL / Prisma)
  * ────────────────────────────────────────────────────────────────────────────
- * Hardened custom order submission with NoSQL sanitization, rate limiting,
+ * Hardened custom order submission with input sanitization, rate limiting,
  * input validation, and gallery design snapshotting.
  */
 
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/db';
-import CustomOrderRequest from '@/models/CustomOrderRequest';
+import prisma from '@/lib/prisma';
 import {
   sanitizeRequestData,
   validateCustomOrderInput,
@@ -20,7 +19,6 @@ import {
 
 export async function POST(request) {
   try {
-    // 1. Rate limiting check (10 requests per hour per IP)
     const rateCheck = checkApiRateLimit(request, 'custom_order');
     if (!rateCheck.allowed) {
       const resp = NextResponse.json(
@@ -30,21 +28,19 @@ export async function POST(request) {
       return applySecurityHeaders(resp, request);
     }
 
-    // 2. Check if user is logged in (optional auth attach)
     let loggedInUserId = null;
     try {
       const auth = await requireAuth(request, 'customer');
       if (auth.authenticated && auth.user?.userId) {
-        loggedInUserId = auth.user.userId;
+        const numId = Number(auth.user.userId);
+        if (!isNaN(numId)) loggedInUserId = numId;
       }
     } catch {
-      /* Guest user submission */
+      /* Guest user */
     }
 
-    // 3. Input sanitization (NoSQL injection protection)
     const { body } = await sanitizeRequestData(request);
 
-    // 4. Validation
     const validation = validateCustomOrderInput(body);
     if (!validation.valid) {
       const resp = NextResponse.json({ message: validation.errors.join(' '), error: validation.errors.join(' ') }, { status: 400 });
@@ -85,38 +81,52 @@ export async function POST(request) {
     const finalRequirements = (customRequirements || requirements || '').trim();
     const finalNotes = (additionalNotes || notes || '').trim();
 
-    await connectDB();
+    const finalBaseProductId = body.baseProductId ? Number(body.baseProductId) : null;
+    const finalBaseProductNameSnapshot = (body.baseProductNameSnapshot || body.baseProductName || '').trim() || null;
 
-    const customRequest = await CustomOrderRequest.create({
-      userId: loggedInUserId,
-      name: finalName,
-      email: finalEmail,
-      phone: finalPhone,
-      productType: finalProductType,
-      ageGroup: finalAgeGroup,
-      customSize: finalCustomSize,
-      preferredColor: finalPreferredColor,
-      occasion: finalOccasion,
-      desiredDate: finalDesiredDate,
-      customRequirements: finalRequirements,
-      referenceImageUrl: referenceImageUrl || null,
-      selectedGalleryImages: Array.isArray(selectedGalleryImages) ? selectedGalleryImages : [],
-      additionalNotes: finalNotes,
-      status: 'New',
+    const customRequest = await prisma.customOrderRequest.create({
+      data: {
+        user_id: loggedInUserId,
+        base_product_id: finalBaseProductId && !isNaN(finalBaseProductId) ? finalBaseProductId : null,
+        base_product_name_snapshot: finalBaseProductNameSnapshot,
+        name: finalName,
+        email: finalEmail,
+        phone: finalPhone,
+        product_type: finalProductType,
+        age: finalAgeGroup,
+        size: finalCustomSize,
+        preferred_color: finalPreferredColor,
+        occasion: finalOccasion,
+        desired_date: finalDesiredDate,
+        custom_requirements: finalRequirements,
+        reference_image_url: referenceImageUrl || null,
+        additional_notes: finalNotes,
+        status: 'New',
+        gallery_selections: {
+          create: (Array.isArray(selectedGalleryImages) ? selectedGalleryImages : []).map((img) => ({
+            image_url_snapshot: typeof img === 'string' ? img : img.imageUrl || img.url || '',
+            caption_snapshot: typeof img === 'object' ? img.caption || null : null,
+            note: typeof img === 'object' ? img.note || null : null,
+          })),
+        },
+      },
     });
 
     logSecurityEvent({
       event: 'CUSTOM_ORDER_SUBMITTED',
       path: '/api/custom-orders',
       outcome: 'SUCCESS',
-      details: { customRequestId: customRequest._id.toString(), email: finalEmail },
+      details: { customRequestId: String(customRequest.id), email: finalEmail },
     });
 
     const response = NextResponse.json({
       success: true,
       message: 'Custom order request received successfully! Divya will review your design vision and contact you within 24-48 hours.',
-      id: customRequest._id.toString(),
-      request: customRequest,
+      id: String(customRequest.id),
+      request: {
+        id: String(customRequest.id),
+        ...customRequest,
+      },
     });
 
     return applySecurityHeaders(response, request);

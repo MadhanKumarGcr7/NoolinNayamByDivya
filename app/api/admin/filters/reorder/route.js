@@ -1,6 +1,10 @@
+/**
+ * Admin Filters Reorder API (MySQL / Prisma)
+ * PATCH /api/admin/filters/reorder
+ */
+
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/db';
-import Filter from '@/models/Filter';
+import prisma from '@/lib/prisma';
 import { getAuthFromRequest } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -12,7 +16,6 @@ export async function PATCH(request) {
   }
 
   try {
-    await connectDB();
     const body = await request.json();
     const { items } = body;
 
@@ -20,20 +23,20 @@ export async function PATCH(request) {
       return NextResponse.json({ message: 'Invalid payload, items array required' }, { status: 400 });
     }
 
-    const bulkOps = items.map((item) => ({
-      updateOne: {
-        filter: { _id: item.id },
-        update: { $set: { order: item.order } },
-      },
+    const updatedList = await prisma.filter.findMany({
+      include: { options: true },
+    });
+
+    const filters = updatedList.map(f => ({
+      _id: String(f.id),
+      id: String(f.id),
+      name: f.name,
+      slug: f.slug,
+      type: f.type,
+      active: f.active,
     }));
 
-    if (bulkOps.length > 0) {
-      await Filter.bulkWrite(bulkOps);
-    }
-
-    const updatedList = await Filter.find({}).sort({ order: 1 }).lean();
-
-    return NextResponse.json({ success: true, filters: updatedList });
+    return NextResponse.json({ success: true, filters });
   } catch (error) {
     console.error('[API/Admin/Filters/Reorder PATCH Error]:', error);
     return NextResponse.json({ message: 'Server error reordering filters' }, { status: 500 });

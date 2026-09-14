@@ -1,8 +1,10 @@
+/**
+ * Admin Filter Detail Operations API (MySQL / Prisma)
+ * GET, PATCH, DELETE /api/admin/filters/[id]
+ */
+
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/db';
-import Filter from '@/models/Filter';
-import NavigationItem from '@/models/NavigationItem';
-import Product from '@/models/Product';
+import prisma from '@/lib/prisma';
 import { getAuthFromRequest } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -24,13 +26,35 @@ export async function GET(request, { params }) {
   }
 
   try {
-    await connectDB();
-    const id = params?.id;
-    const filter = await Filter.findById(id).lean();
+    const id = Number(params?.id);
+    if (isNaN(id)) {
+      return NextResponse.json({ message: 'Filter not found' }, { status: 404 });
+    }
+
+    const filter = await prisma.filter.findUnique({
+      where: { id },
+      include: { options: true },
+    });
+
     if (!filter) {
       return NextResponse.json({ message: 'Filter not found' }, { status: 404 });
     }
-    return NextResponse.json({ success: true, filter });
+
+    return NextResponse.json({
+      success: true,
+      filter: {
+        _id: String(filter.id),
+        id: String(filter.id),
+        name: filter.name,
+        slug: filter.slug,
+        type: filter.type,
+        options: filter.options,
+        rangeMin: filter.range_min,
+        rangeMax: filter.range_max,
+        rangeUnit: filter.range_unit,
+        active: filter.active,
+      },
+    });
   } catch (error) {
     console.error('[API/Admin/Filters/[id] GET Error]:', error);
     return NextResponse.json({ message: 'Server error' }, { status: 500 });
@@ -44,47 +68,68 @@ export async function PATCH(request, { params }) {
   }
 
   try {
-    await connectDB();
-    const id = params?.id;
-    const body = await request.json();
-
-    const existing = await Filter.findById(id);
-    if (!existing) {
+    const id = Number(params?.id);
+    if (isNaN(id)) {
       return NextResponse.json({ message: 'Filter not found' }, { status: 404 });
     }
 
-    const { name, type, options, rangeMin, rangeMax, rangeUnit, rangeStep, active } = body;
+    const body = await request.json();
+    const { name, type, options, rangeMin, rangeMax, rangeUnit, active } = body;
 
-    const updateData = {};
-    if (active !== undefined) updateData.active = Boolean(active);
+    const data = {};
+    if (active !== undefined) data.active = Boolean(active);
     if (name !== undefined) {
-      updateData.name = name.trim();
-      if (name.trim().toLowerCase() !== existing.name.toLowerCase()) {
-        let newSlug = slugify(name);
-        let slugExists = await Filter.findOne({ slug: newSlug, _id: { $ne: id } });
-        let counter = 1;
-        while (slugExists) {
-          newSlug = `${slugify(name)}-${counter}`;
-          slugExists = await Filter.findOne({ slug: newSlug, _id: { $ne: id } });
-          counter++;
-        }
-        updateData.slug = newSlug;
+      data.name = name.trim();
+      let newSlug = slugify(name);
+      let slugExists = await prisma.filter.findFirst({ where: { slug: newSlug, NOT: { id } } });
+      let counter = 1;
+      while (slugExists) {
+        newSlug = `${slugify(name)}-${counter}`;
+        slugExists = await prisma.filter.findFirst({ where: { slug: newSlug, NOT: { id } } });
+        counter++;
+      }
+      data.slug = newSlug;
+    }
+    if (type !== undefined) data.type = type;
+    if (rangeMin !== undefined) data.range_min = Number(rangeMin);
+    if (rangeMax !== undefined) data.range_max = Number(rangeMax);
+    if (rangeUnit !== undefined) data.range_unit = rangeUnit;
+
+    await prisma.filter.update({
+      where: { id },
+      data,
+    });
+
+    if (Array.isArray(options)) {
+      await prisma.filterOption.deleteMany({ where: { filter_id: id } });
+      for (const o of options) {
+        await prisma.filterOption.create({
+          data: {
+            filter_id: id,
+            label: o.label,
+            value: o.value,
+            hex: o.hex || null,
+          },
+        });
       }
     }
-    if (type !== undefined) updateData.type = type;
-    if (options !== undefined && Array.isArray(options)) updateData.options = options;
-    if (rangeMin !== undefined) updateData.rangeMin = Number(rangeMin);
-    if (rangeMax !== undefined) updateData.rangeMax = Number(rangeMax);
-    if (rangeUnit !== undefined) updateData.rangeUnit = rangeUnit;
-    if (rangeStep !== undefined) updateData.rangeStep = Number(rangeStep);
 
-    const updatedFilter = await Filter.findByIdAndUpdate(
-      id,
-      { $set: updateData },
-      { new: true, runValidators: true }
-    ).lean();
+    const updated = await prisma.filter.findUnique({
+      where: { id },
+      include: { options: true },
+    });
 
-    return NextResponse.json({ success: true, filter: updatedFilter });
+    return NextResponse.json({
+      success: true,
+      filter: {
+        _id: String(updated.id),
+        id: String(updated.id),
+        name: updated.name,
+        slug: updated.slug,
+        type: updated.type,
+        active: updated.active,
+      },
+    });
   } catch (error) {
     console.error('[API/Admin/Filters/[id] PATCH Error]:', error);
     return NextResponse.json({ message: 'Server error updating filter' }, { status: 500 });
@@ -98,29 +143,16 @@ export async function DELETE(request, { params }) {
   }
 
   try {
-    await connectDB();
-    const id = params?.id;
-
-    const filter = await Filter.findById(id);
-    if (!filter) {
+    const id = Number(params?.id);
+    if (isNaN(id)) {
       return NextResponse.json({ message: 'Filter not found' }, { status: 404 });
     }
 
-    // Clean up references in NavigationItem.assignedFilters and Product.filterValues
-    await NavigationItem.updateMany(
-      {},
-      { $pull: { assignedFilters: { filterId: id } } }
-    );
-    await Product.updateMany(
-      {},
-      { $pull: { filterValues: { filterId: id } } }
-    );
-
-    await Filter.findByIdAndDelete(id);
+    const filter = await prisma.filter.delete({ where: { id } });
 
     return NextResponse.json({
       success: true,
-      message: `Filter "${filter.name}" deleted and unassigned from categories & products.`,
+      message: `Filter "${filter.name}" deleted cleanly from MySQL.`,
     });
   } catch (error) {
     console.error('[API/Admin/Filters/[id] DELETE Error]:', error);

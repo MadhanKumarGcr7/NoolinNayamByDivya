@@ -1,16 +1,10 @@
 /**
- * Admin Stats API
+ * Admin Stats API (MySQL / Prisma)
  * GET /api/admin/stats
- * ────────────────────────────────────────────────────────────────────────────
- * Returns dashboard summary counts. Protected: owner JWT required.
  */
 
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/db';
-import User from '@/models/User';
-import Order from '@/models/Order';
-import CustomOrderRequest from '@/models/CustomOrderRequest';
-import Product from '@/models/Product';
+import prisma from '@/lib/prisma';
 import { getAuthFromRequest } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -22,31 +16,51 @@ export async function GET(request) {
   }
 
   try {
-    await connectDB();
-
-    const [totalCustomers, totalOrders, pendingOrders, customRequests, products] = await Promise.all([
-      User.countDocuments({ role: 'customer' }),
-      Order.countDocuments(),
-      Order.countDocuments({ status: 'Pending' }),
-      CustomOrderRequest.countDocuments({ status: 'New' }),
-      Product.find({}).select('stock lowStockThreshold name').lean(),
+    const [totalCustomers, totalOrders, pendingOrders, newCustomRequests, products] = await Promise.all([
+      prisma.user.count({ where: { role: 'customer' } }),
+      prisma.order.count(),
+      prisma.order.count({ where: { status: 'Pending' } }),
+      prisma.customOrderRequest.count({ where: { status: 'New' } }),
+      prisma.product.findMany({ include: { variants: true } }),
     ]);
 
-    const lowStockProducts = products.filter(
-      (p) => p.stock <= (p.lowStockThreshold || 5)
-    ).length;
+    const lowStockProducts = products.filter(p => {
+      const totalStock = p.variants.reduce((acc, curr) => acc + curr.stock, 0);
+      return totalStock <= 5;
+    }).length;
 
-    // Recent orders (last 5)
-    const recentOrders = await Order.find()
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .lean();
+    const rawRecentOrders = await prisma.order.findMany({
+      take: 5,
+      orderBy: { created_at: 'desc' },
+      include: { items: true },
+    });
 
-    // Recent custom requests (last 5)
-    const recentCustomRequests = await CustomOrderRequest.find()
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .lean();
+    const recentOrders = rawRecentOrders.map(o => ({
+      _id: String(o.id),
+      id: String(o.id),
+      subtotal: Number(o.subtotal),
+      shipping: Number(o.shipping),
+      total: Number(o.total),
+      status: o.status,
+      createdAt: o.created_at,
+      contactEmail: o.contact_email,
+      contactPhone: o.contact_phone,
+    }));
+
+    const rawRecentCustomRequests = await prisma.customOrderRequest.findMany({
+      take: 5,
+      orderBy: { created_at: 'desc' },
+    });
+
+    const recentCustomRequests = rawRecentCustomRequests.map(r => ({
+      _id: String(r.id),
+      id: String(r.id),
+      name: r.name,
+      email: r.email,
+      productType: r.product_type,
+      status: r.status,
+      createdAt: r.created_at,
+    }));
 
     return NextResponse.json({
       stats: {
@@ -54,7 +68,7 @@ export async function GET(request) {
         totalOrders,
         pendingOrders,
         lowStockProducts,
-        newCustomRequests: customRequests,
+        newCustomRequests,
       },
       recentOrders,
       recentCustomRequests,

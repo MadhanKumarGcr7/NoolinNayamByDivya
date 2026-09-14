@@ -6,6 +6,8 @@ import PlaceholderImage from '@/components/ui/PlaceholderImage';
 import Badge from '@/components/ui/Badge';
 import useCartStore from '@/store/cartStore';
 import useWishlistStore from '@/store/wishlistStore';
+import useAuthStore from '@/store/authStore';
+import useAuthModalStore from '@/store/authModalStore';
 import { brandConfig } from '@/lib/config';
 
 const { currencySymbol } = brandConfig.shipping;
@@ -15,7 +17,32 @@ export function ProductCard({ product }) {
   const [hovering, setHovering] = useState(false);
   const { addItem } = useCartStore();
   const { toggleItem, isWishlisted } = useWishlistStore();
+  const { isLoggedIn } = useAuthStore();
+  const { openAuthModal } = useAuthModalStore();
   const wishlisted = isWishlisted(product.id || product._id);
+
+  const handleWishlistClick = (e) => {
+    e.preventDefault();
+    if (!isLoggedIn) {
+      openAuthModal({ actionType: 'wishlist', product });
+      return;
+    }
+    toggleItem(product);
+  };
+
+  const handleQuickAddClick = () => {
+    if (isOut) return;
+    const defaultSize = product.sizes?.[0] || '1Y';
+    if (!isLoggedIn) {
+      openAuthModal({
+        actionType: 'cart',
+        product,
+        options: { size: defaultSize },
+      });
+      return;
+    }
+    addItem(product, { size: defaultSize });
+  };
 
   const imageList = Array.isArray(product.images)
     ? product.images
@@ -62,19 +89,19 @@ export function ProductCard({ product }) {
         )}
 
         {/* Badges */}
-        <div className="absolute top-3 left-3 z-10 flex flex-col gap-1">
+        <div className="absolute top-3 left-3 z-10 flex flex-col gap-1 shop-badge-container">
           {isOut ? (
-            <Badge label="Out of Stock" className="bg-warmBrown text-ivory border-warmBrown" />
+            <Badge label="Out of Stock" className="bg-warmBrown text-ivory border-warmBrown shop-badge" />
           ) : product.stock > 0 && product.stock <= (product.lowStockThreshold || 5) ? (
-            <Badge label={`Only ${product.stock} Left`} className="bg-amber-100 text-amber-900 border-amber-300 font-medium" />
+            <Badge label={`Only ${product.stock} Left`} className="bg-amber-100 text-amber-900 border-amber-300 font-medium shop-badge" />
           ) : product.badge ? (
-            <Badge label={product.badge} />
+            <Badge label={product.badge} className="shop-badge" />
           ) : null}
         </div>
 
         {/* Wishlist button */}
         <button
-          onClick={(e) => { e.preventDefault(); toggleItem(product); }}
+          onClick={handleWishlistClick}
           aria-label={wishlisted ? `Remove ${product.name} from wishlist` : `Add ${product.name} to wishlist`}
           className={`
             absolute top-3 right-3 z-10 w-9 h-9 rounded-full
@@ -93,9 +120,9 @@ export function ProductCard({ product }) {
         {/* Quick Add — appears on hover */}
         <div className={`absolute bottom-0 left-0 right-0 p-3 bg-ivory/95 backdrop-blur-sm transition-all duration-400 ${hovering ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}>
           <button
-            onClick={() => !isOut && addItem(product, { size: product.sizes?.[0] })}
+            onClick={handleQuickAddClick}
             disabled={isOut}
-            className={`w-full py-2.5 text-label-md uppercase tracking-[0.14em] transition-colors font-medium ${
+            className={`w-full py-2.5 text-label-md uppercase tracking-[0.14em] transition-colors font-medium shop-add-to-cart-btn ${
               isOut
                 ? 'text-charcoal-400 cursor-not-allowed'
                 : 'text-charcoal hover:text-warmBrown'

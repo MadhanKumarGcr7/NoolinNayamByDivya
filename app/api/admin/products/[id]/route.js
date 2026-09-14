@@ -1,15 +1,12 @@
 /**
- * Admin Single Product API
+ * Admin Single Product API (MySQL / Prisma)
  * GET    /api/admin/products/[id] — Fetch single product detail
  * PUT    /api/admin/products/[id] — Update product, stock, variants, visibility
- * DELETE /api/admin/products/[id] — Soft-delete product (sets status: 'deleted')
- * ────────────────────────────────────────────────────────────────────────────
- * Protected: owner JWT required.
+ * DELETE /api/admin/products/[id] — Delete product
  */
 
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/db';
-import Product from '@/models/Product';
+import prisma from '@/lib/prisma';
 import { getAuthFromRequest } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -31,14 +28,59 @@ export async function GET(request, { params }) {
   }
 
   try {
-    await connectDB();
-    const id = params?.id;
-
-    const product = await Product.findById(id).lean();
-
-    if (!product || product.status === 'deleted') {
+    const id = Number(params?.id);
+    if (isNaN(id)) {
       return NextResponse.json({ message: 'Product not found' }, { status: 404 });
     }
+
+    const p = await prisma.product.findUnique({
+      where: { id },
+      include: {
+        category: true,
+        images: { orderBy: { display_order: 'asc' } },
+        variants: true,
+      },
+    });
+
+    if (!p || p.status === 'deleted') {
+      return NextResponse.json({ message: 'Product not found' }, { status: 404 });
+    }
+
+    const images = p.images.map(i => i.url);
+    const sizes = Array.from(new Set(p.variants.map(v => v.size).filter(Boolean)));
+    const colors = Array.from(new Set(p.variants.map(v => v.color).filter(Boolean))).map(name => ({ name }));
+    const stock = p.variants.reduce((acc, curr) => acc + curr.stock, 0);
+
+    const product = {
+      _id: String(p.id),
+      id: String(p.id),
+      name: p.name,
+      slug: p.slug,
+      description: p.description,
+      price: Number(p.price),
+      category: p.category.slug,
+      categoryName: p.category.name,
+      material: p.material,
+      care: p.care,
+      customizable: p.customizable,
+      showInDesignGallery: p.show_in_design_gallery,
+      designGalleryCategory: p.design_gallery_category || '',
+      featured: p.featured,
+      newArrival: p.new_arrival,
+      status: p.status,
+      createdAt: p.created_at,
+      images,
+      sizes,
+      colors,
+      stock,
+      variants: p.variants.map(v => ({
+        id: String(v.id),
+        size: v.size,
+        color: v.color,
+        stock: v.stock,
+        outOfStock: v.out_of_stock,
+      })),
+    };
 
     return NextResponse.json({ product });
 
@@ -55,11 +97,13 @@ export async function PUT(request, { params }) {
   }
 
   try {
-    await connectDB();
-    const id = params?.id;
-    const body = await request.json();
+    const id = Number(params?.id);
+    if (isNaN(id)) {
+      return NextResponse.json({ message: 'Product not found' }, { status: 404 });
+    }
 
-    const existing = await Product.findById(id);
+    const body = await request.json();
+    const existing = await prisma.product.findUnique({ where: { id } });
     if (!existing) {
       return NextResponse.json({ message: 'Product not found' }, { status: 404 });
     }
@@ -69,83 +113,95 @@ export async function PUT(request, { params }) {
       slug: customSlug,
       description,
       price,
-      comparePrice,
-      category,
-      subcategory,
-      sizes,
-      colors,
-      variants,
+      category: categorySlug,
       material,
       care,
       featured,
       newArrival,
       customizable,
+      showInDesignGallery,
+      designGalleryCategory,
       status,
-      badge,
       images,
-      lowStockThreshold,
-      stock,
-      filterValues,
+      variants,
     } = body;
 
-    const updateData = {};
+    const data = {};
+    if (name !== undefined) data.name = name.trim();
+    if (description !== undefined) data.description = description.trim();
+    if (price !== undefined) data.price = parseFloat(price);
+    if (material !== undefined) data.material = material;
+    if (care !== undefined) data.care = care;
+    if (featured !== undefined) data.featured = Boolean(featured);
+    if (newArrival !== undefined) data.new_arrival = Boolean(newArrival);
+    if (customizable !== undefined) data.customizable = Boolean(customizable);
+    if (showInDesignGallery !== undefined) data.show_in_design_gallery = Boolean(showInDesignGallery);
+    if (designGalleryCategory !== undefined) data.design_gallery_category = designGalleryCategory ? String(designGalleryCategory).trim() : null;
+    if (status !== undefined) data.status = status;
 
-    if (name !== undefined) updateData.name = name.trim();
-    if (description !== undefined) updateData.description = description.trim();
-    if (price !== undefined) updateData.price = parseFloat(price);
-    if (comparePrice !== undefined) updateData.comparePrice = comparePrice ? parseFloat(comparePrice) : null;
-    if (category !== undefined) updateData.category = category;
-    if (subcategory !== undefined) updateData.subcategory = subcategory;
-    if (sizes !== undefined) updateData.sizes = sizes;
-    if (colors !== undefined) updateData.colors = colors;
-    if (material !== undefined) updateData.material = material;
-    if (care !== undefined) updateData.care = care;
-    if (featured !== undefined) updateData.featured = Boolean(featured);
-    if (newArrival !== undefined) updateData.newArrival = Boolean(newArrival);
-    if (customizable !== undefined) updateData.customizable = Boolean(customizable);
-    if (status !== undefined) updateData.status = status;
-    if (badge !== undefined) updateData.badge = badge || null;
-    if (images !== undefined) updateData.images = images;
-    if (lowStockThreshold !== undefined) updateData.lowStockThreshold = parseInt(lowStockThreshold, 10) || 5;
-    if (filterValues !== undefined && Array.isArray(filterValues)) updateData.filterValues = filterValues;
+    if (categorySlug) {
+      let cat = await prisma.productCategory.findFirst({
+        where: { OR: [{ slug: categorySlug }, { name: categorySlug }] },
+      });
+      if (cat) data.category_id = cat.id;
+    }
 
-    // Handle slug update if provided and different
     if (customSlug && customSlug !== existing.slug) {
       let baseSlug = slugify(customSlug);
       let finalSlug = baseSlug;
-      let slugExists = await Product.findOne({ slug: finalSlug, _id: { $ne: id } });
+      let slugExists = await prisma.product.findFirst({ where: { slug: finalSlug, NOT: { id } } });
       let counter = 1;
       while (slugExists) {
         finalSlug = `${baseSlug}-${counter}`;
-        slugExists = await Product.findOne({ slug: finalSlug, _id: { $ne: id } });
+        slugExists = await prisma.product.findFirst({ where: { slug: finalSlug, NOT: { id } } });
         counter += 1;
       }
-      updateData.slug = finalSlug;
+      data.slug = finalSlug;
     }
 
-    // Process variant stock & auto outOfStock flag
-    if (variants !== undefined && Array.isArray(variants)) {
-      const processedVariants = variants.map((v) => ({
-        size:       v.size || null,
-        color:      v.color || null,
-        stock:      Math.max(0, parseInt(v.stock, 10) || 0),
-        outOfStock: Boolean(v.outOfStock) || (parseInt(v.stock, 10) || 0) <= 0,
-      }));
-      updateData.variants = processedVariants;
-      updateData.stock = processedVariants.reduce((sum, v) => sum + v.stock, 0);
-    } else if (stock !== undefined) {
-      updateData.stock = Math.max(0, parseInt(stock, 10) || 0);
+    await prisma.product.update({
+      where: { id },
+      data,
+    });
+
+    if (Array.isArray(images)) {
+      await prisma.productImage.deleteMany({ where: { product_id: id } });
+      for (let i = 0; i < images.length; i++) {
+        const url = typeof images[i] === 'string' ? images[i] : images[i].url;
+        await prisma.productImage.create({
+          data: { product_id: id, url, display_order: i },
+        });
+      }
     }
 
-    const updatedProduct = await Product.findByIdAndUpdate(
-      id,
-      { $set: updateData },
-      { new: true, runValidators: true }
-    ).lean();
+    if (Array.isArray(variants)) {
+      await prisma.productVariant.deleteMany({ where: { product_id: id } });
+      for (const v of variants) {
+        await prisma.productVariant.create({
+          data: {
+            product_id: id,
+            size: v.size || null,
+            color: v.color || null,
+            stock: Math.max(0, parseInt(v.stock, 10) || 0),
+            out_of_stock: Boolean(v.outOfStock) || (parseInt(v.stock, 10) || 0) <= 0,
+          },
+        });
+      }
+    }
+
+    const updatedProduct = await prisma.product.findUnique({
+      where: { id },
+      include: { category: true, images: true, variants: true },
+    });
 
     return NextResponse.json({
       success: true,
-      product: updatedProduct,
+      product: {
+        _id: String(updatedProduct.id),
+        id: String(updatedProduct.id),
+        name: updatedProduct.name,
+        slug: updatedProduct.slug,
+      },
     });
 
   } catch (error) {
@@ -161,19 +217,18 @@ export async function DELETE(request, { params }) {
   }
 
   try {
-    await connectDB();
-    const id = params?.id;
-
-    // Hard delete: permanently remove product document from MongoDB collection
-    const product = await Product.findByIdAndDelete(id);
-
-    if (!product) {
+    const id = Number(params?.id);
+    if (isNaN(id)) {
       return NextResponse.json({ message: 'Product not found' }, { status: 404 });
     }
 
+    const product = await prisma.product.delete({
+      where: { id },
+    });
+
     return NextResponse.json({
       success: true,
-      message: `Product "${product.name}" permanently deleted from MongoDB.`,
+      message: `Product "${product.name}" permanently deleted from MySQL.`,
     });
 
   } catch (error) {

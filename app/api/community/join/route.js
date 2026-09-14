@@ -1,13 +1,12 @@
 /**
- * Community Join API — POST /api/community/join
+ * Community Join API — POST /api/community/join (MySQL / Prisma)
  * ────────────────────────────────────────────────────────────────────────────
- * Hardened community registration with NoSQL sanitization, rate limiting,
+ * Hardened community registration with input sanitization, rate limiting,
  * and official WhatsApp group URL response.
  */
 
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/db';
-import CommunityMember from '@/models/CommunityMember';
+import prisma from '@/lib/prisma';
 import { brandConfig } from '@/lib/config';
 import {
   sanitizeRequestData,
@@ -21,7 +20,6 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(request) {
   try {
-    // 1. Rate limiting check
     const rateCheck = checkApiRateLimit(request, 'community');
     if (!rateCheck.allowed) {
       const resp = NextResponse.json(
@@ -31,7 +29,6 @@ export async function POST(request) {
       return applySecurityHeaders(resp, request);
     }
 
-    // 2. Input sanitization (NoSQL injection protection)
     const { body } = await sanitizeRequestData(request);
     const { email, name, phone, source = 'website' } = body;
 
@@ -40,21 +37,22 @@ export async function POST(request) {
       return applySecurityHeaders(resp, request);
     }
 
-    await connectDB();
-
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Check existing or create record
-    const existing = await CommunityMember.findOne({ email: normalizedEmail });
-    if (!existing) {
-      await CommunityMember.create({
+    await prisma.communityMember.upsert({
+      where: { email: normalizedEmail },
+      update: {
+        name: name ? name.trim() : 'Member',
+        phone: phone ? phone.trim() : null,
+      },
+      create: {
         email: normalizedEmail,
-        name: name ? name.trim() : '',
-        phone: phone ? phone.trim() : '',
-        source,
-        status: 'requested',
-      });
-    }
+        name: name ? name.trim() : 'Member',
+        phone: phone ? phone.trim() : null,
+        source: source || 'website',
+        status: 'Active',
+      },
+    });
 
     logSecurityEvent({
       event: 'COMMUNITY_MEMBER_JOINED',

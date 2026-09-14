@@ -11,7 +11,7 @@ export const metadata = {
 export default function ContactPage() {
   return (
     <div className="pt-28 pb-6 bg-ivory">
-      <div className="bg-surface border-b border-border/60 py-16 mb-16">
+      <div className="bg-mocha-gradient border-b border-border/60 py-16 mb-16 shadow-warm-xs">
         <div className="editorial-container text-center">
           <SectionHeading
             label="Get In Touch"

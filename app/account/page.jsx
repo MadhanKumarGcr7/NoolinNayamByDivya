@@ -440,19 +440,25 @@ function CustomRequestsTab() {
   }, []);
 
   const statusColors = {
-    New:          'bg-blush-light text-warmBrown border-blush',
-    Reviewed:     'bg-sand/40 text-charcoal-600 border-sand',
-    'In Progress':'bg-sage-light text-sage-dark border-sage',
-    Completed:    'bg-sage text-charcoal border-sage-dark',
-    Declined:     'bg-charcoal-200 text-charcoal-600 border-charcoal-300',
+    New:            'bg-blush-light text-warmBrown border-blush',
+    'In Review':     'bg-sand/40 text-charcoal-600 border-sand',
+    Quoted:         'bg-sage-light text-sage-dark border-sage',
+    Reviewed:       'bg-sand/40 text-charcoal-600 border-sand',
+    'In Progress':   'bg-sage-light text-sage-dark border-sage',
+    'In Production': 'bg-sage-light text-sage-dark border-sage',
+    Completed:      'bg-sage text-charcoal border-sage-dark',
+    Declined:       'bg-charcoal-200 text-charcoal-600 border-charcoal-300',
   };
 
   const statusLabels = {
-    New:          'Received — Pending Review by Divya',
-    Reviewed:     'Reviewed — Price Quoted & Ready',
-    'In Progress': 'Handcrafting in Progress',
-    Completed:    'Handcrafted & Ready to Ship',
-    Declined:     'Inquiry Declined / Closed',
+    New:             'Received — Pending Review by Divya',
+    'In Review':     'Under Review by Divya',
+    Quoted:          'Price Quoted — Ready to Order',
+    Reviewed:        'Reviewed — Price Quoted & Ready',
+    'In Progress':   'Handcrafting in Progress',
+    'In Production': 'Handcrafting in Progress',
+    Completed:       'Handcrafted & Ready to Ship',
+    Declined:        'Inquiry Declined / Closed',
   };
 
   const handleAddToCart = (req) => {
@@ -516,6 +522,27 @@ function CustomRequestsTab() {
               {statusLabels[req.status] || req.status}
             </span>
           </div>
+
+          {/* Base Product Selection Banner */}
+          {(req.baseProductNameSnapshot || req.baseProduct) && (
+            <div className="bg-ivory border border-border/80 p-3 flex items-center gap-3 rounded-xs">
+              {req.baseProduct?.image && (
+                <img
+                  src={req.baseProduct.image}
+                  alt={req.baseProductNameSnapshot}
+                  className="w-10 h-12 object-cover border border-border/60 flex-shrink-0"
+                />
+              )}
+              <div>
+                <span className="text-[10px] uppercase font-sans font-medium tracking-wider text-warmBrown block">
+                  Base Shop Piece
+                </span>
+                <p className="text-body-sm font-sans font-medium text-charcoal">
+                  {req.baseProductNameSnapshot || req.baseProduct?.name}
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Details */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-body-xs font-sans">

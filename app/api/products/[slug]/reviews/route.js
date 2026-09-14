@@ -1,51 +1,30 @@
 /**
- * Public Product Reviews API Route
+ * Public Product Reviews API Route (MySQL / Prisma)
  * GET  /api/products/[slug]/reviews — Fetch approved reviews & rating summary for a product
  * POST /api/products/[slug]/reviews — Submit new customer review & rating
  */
 
 import { NextResponse } from 'next/server';
-import mongoose from 'mongoose';
-import connectDB from '@/lib/db';
-import Product from '@/models/Product';
-import Review from '@/models/Review';
+import prisma from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
 async function getProduct(slug) {
   if (!slug) return null;
-  const isObjectId = mongoose.Types.ObjectId.isValid(slug);
-
-  return await Product.findOne({
-    $or: [
-      { slug: slug.toLowerCase() },
-      { slug: slug },
-      ...(isObjectId ? [{ _id: slug }] : []),
-    ],
+  const numId = Number(slug);
+  return await prisma.product.findFirst({
+    where: {
+      OR: [
+        { slug: slug.toLowerCase() },
+        { slug: slug },
+        ...(isNaN(numId) ? [] : [{ id: numId }]),
+      ],
+    },
   });
-}
-
-// Recalculates aggregate average rating and approved review count on Product document
-async function recalculateProductRating(productId) {
-  const reviews = await Review.find({ productId, status: 'approved' }).lean();
-  const reviewCount = reviews.length;
-  let averageRating = 5.0;
-
-  if (reviewCount > 0) {
-    const totalStars = reviews.reduce((sum, r) => sum + r.rating, 0);
-    averageRating = Math.round((totalStars / reviewCount) * 10) / 10;
-  }
-
-  await Product.findByIdAndUpdate(productId, {
-    $set: { averageRating, reviewCount },
-  });
-
-  return { averageRating, reviewCount };
 }
 
 export async function GET(request, { params }) {
   try {
-    await connectDB();
     const slug = params?.slug;
 
     const product = await getProduct(slug);
@@ -53,11 +32,18 @@ export async function GET(request, { params }) {
       return NextResponse.json({ reviews: [], averageRating: 5.0, reviewCount: 0 });
     }
 
-    const reviews = await Review.find({ productId: product._id, status: 'approved' })
-      .sort({ createdAt: -1 })
-      .lean();
+    const reviews = await prisma.review.findMany({
+      where: { product_id: product.id, status: 'approved' },
+      orderBy: { created_at: 'desc' },
+    });
 
-    // Rating breakdown (1 to 5 stars counts)
+    const reviewCount = reviews.length;
+    let averageRating = 5.0;
+    if (reviewCount > 0) {
+      const totalStars = reviews.reduce((sum, r) => sum + r.rating, 0);
+      averageRating = Math.round((totalStars / reviewCount) * 10) / 10;
+    }
+
     const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
     reviews.forEach((r) => {
       if (distribution[r.rating] !== undefined) {
@@ -65,11 +51,27 @@ export async function GET(request, { params }) {
       }
     });
 
+    const mappedReviews = reviews.map(r => ({
+      _id: String(r.id),
+      id: String(r.id),
+      productId: String(r.product_id),
+      productSlug: r.product_slug,
+      productName: r.product_name,
+      customerName: r.customer_name,
+      customerEmail: r.customer_email,
+      rating: r.rating,
+      headline: r.headline,
+      comment: r.comment,
+      status: r.status,
+      verifiedPurchase: r.verified_purchase,
+      createdAt: r.created_at,
+    }));
+
     return NextResponse.json({
-      averageRating: product.averageRating || 5.0,
-      reviewCount: reviews.length,
+      averageRating,
+      reviewCount,
       distribution,
-      reviews,
+      reviews: mappedReviews,
     });
   } catch (error) {
     console.error('[API/Products/[slug]/Reviews GET Error]:', error);
@@ -79,7 +81,6 @@ export async function GET(request, { params }) {
 
 export async function POST(request, { params }) {
   try {
-    await connectDB();
     const slug = params?.slug;
     const body = await request.json();
 
@@ -96,26 +97,45 @@ export async function POST(request, { params }) {
       return NextResponse.json({ message: 'Product not found' }, { status: 404 });
     }
 
-    const review = await Review.create({
-      productId: product._id,
-      productSlug: product.slug,
-      productName: product.name,
-      customerName: customerName.trim(),
-      customerEmail: customerEmail.trim().toLowerCase(),
-      rating: numericRating,
-      headline: headline.trim(),
-      comment: comment.trim(),
-      status: 'approved', // Auto-publish for immediate feedback (admin can moderate)
+    const review = await prisma.review.create({
+      data: {
+        product_id: product.id,
+        product_slug: product.slug,
+        product_name: product.name,
+        customer_name: customerName.trim(),
+        customer_email: customerEmail.trim().toLowerCase(),
+        rating: numericRating,
+        headline: headline.trim(),
+        comment: comment.trim(),
+        status: 'approved',
+      },
     });
 
-    // Recalculate rating score
-    const stats = await recalculateProductRating(product._id);
+    const allApproved = await prisma.review.findMany({
+      where: { product_id: product.id, status: 'approved' },
+    });
+    const reviewCount = allApproved.length;
+    let averageRating = 5.0;
+    if (reviewCount > 0) {
+      const totalStars = allApproved.reduce((sum, r) => sum + r.rating, 0);
+      averageRating = Math.round((totalStars / reviewCount) * 10) / 10;
+    }
 
     return NextResponse.json({
       success: true,
-      review,
-      averageRating: stats.averageRating,
-      reviewCount: stats.reviewCount,
+      review: {
+        _id: String(review.id),
+        id: String(review.id),
+        customerName: review.customer_name,
+        customerEmail: review.customer_email,
+        rating: review.rating,
+        headline: review.headline,
+        comment: review.comment,
+        status: review.status,
+        createdAt: review.created_at,
+      },
+      averageRating,
+      reviewCount,
       message: 'Thank you for your feedback! Your review has been published.',
     }, { status: 201 });
 

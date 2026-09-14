@@ -1,12 +1,11 @@
 /**
- * Customer Order Return Request Flagging API — POST /api/auth/orders/return-request
+ * Customer Order Return Request Flagging API — POST /api/auth/orders/return-request (MySQL / Prisma)
  * ────────────────────────────────────────────────────────────────────────────
- * Hardened return request flagging with NoSQL sanitization and audit logging.
+ * Hardened return request flagging with input sanitization and audit logging.
  */
 
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/db';
-import Order from '@/models/Order';
+import prisma from '@/lib/prisma';
 import {
   sanitizeRequestData,
   applySecurityHeaders,
@@ -18,37 +17,38 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
   try {
-    await connectDB();
     const { body } = await sanitizeRequestData(request);
     const { orderId } = body;
 
-    if (!orderId || typeof orderId !== 'string') {
-      const resp = NextResponse.json({ error: 'Order ID is required.' }, { status: 400 });
+    const id = Number(orderId);
+    if (!orderId || isNaN(id)) {
+      const resp = NextResponse.json({ error: 'Valid Order ID is required.' }, { status: 400 });
       return applySecurityHeaders(resp, request);
     }
 
-    const order = await Order.findByIdAndUpdate(
-      orderId,
-      {
-        returnRequested: true,
-        returnRequestedAt: new Date(),
+    const order = await prisma.order.update({
+      where: { id },
+      data: {
+        return_requested: true,
+        return_requested_at: new Date(),
       },
-      { new: true, runValidators: true }
-    );
-
-    if (!order) {
-      const resp = NextResponse.json({ error: 'Order not found.' }, { status: 404 });
-      return applySecurityHeaders(resp, request);
-    }
+    });
 
     logSecurityEvent({
       event: 'RETURN_REQUESTED',
       path: '/api/auth/orders/return-request',
       outcome: 'SUCCESS',
-      details: { orderId, orderNumber: order.orderNumber },
+      details: { orderId: String(order.id) },
     });
 
-    const response = NextResponse.json({ success: true, order });
+    const response = NextResponse.json({
+      success: true,
+      order: {
+        id: String(order.id),
+        returnRequested: order.return_requested,
+        returnRequestedAt: order.return_requested_at,
+      },
+    });
     return applySecurityHeaders(response, request);
   } catch (error) {
     return handleApiError(error, request);

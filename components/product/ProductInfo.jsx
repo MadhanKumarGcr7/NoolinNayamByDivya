@@ -7,6 +7,8 @@ import Badge from '@/components/ui/Badge';
 import { SizeSelector } from '@/components/product/VariantSelectors';
 import useCartStore from '@/store/cartStore';
 import useWishlistStore from '@/store/wishlistStore';
+import useAuthStore from '@/store/authStore';
+import useAuthModalStore from '@/store/authModalStore';
 import { brandConfig, getWhatsAppUrl } from '@/lib/config';
 
 const { currencySymbol } = brandConfig.shipping;
@@ -19,6 +21,8 @@ export default function ProductInfo({ product }) {
 
   const { addItem } = useCartStore();
   const { toggleItem, isWishlisted } = useWishlistStore();
+  const { isLoggedIn } = useAuthStore();
+  const { openAuthModal } = useAuthModalStore();
   const wishlisted = isWishlisted(product.id || product._id);
 
   // Check variant stock map if present
@@ -38,13 +42,37 @@ export default function ProductInfo({ product }) {
 
   const handleAddToCart = () => {
     if (totalOut || currentVariantOut) return;
+    if (!isLoggedIn) {
+      openAuthModal({
+        actionType: 'cart',
+        product,
+        options: { size: selectedSize, quantity },
+      });
+      return;
+    }
     addItem(product, { size: selectedSize, quantity });
   };
 
   const handleBuyNow = () => {
     if (totalOut || currentVariantOut) return;
+    if (!isLoggedIn) {
+      openAuthModal({
+        actionType: 'buynow',
+        product,
+        options: { size: selectedSize, quantity },
+      });
+      return;
+    }
     addItem(product, { size: selectedSize, quantity });
     router.push('/checkout');
+  };
+
+  const handleWishlistToggle = () => {
+    if (!isLoggedIn) {
+      openAuthModal({ actionType: 'wishlist', product });
+      return;
+    }
+    toggleItem(product);
   };
 
   return (
@@ -153,7 +181,7 @@ export default function ProductInfo({ product }) {
         )}
 
         <button
-          onClick={() => toggleItem(product)}
+          onClick={handleWishlistToggle}
           aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
           className={`p-4 border transition-colors flex items-center justify-center ${
             wishlisted ? 'border-warmBrown text-warmBrown bg-blush-light/30' : 'border-border text-charcoal hover:border-charcoal'

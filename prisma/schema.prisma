@@ -1,0 +1,421 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                    Int                    @id @default(autoincrement())
+  name                  String
+  email                 String                 @unique
+  phone                 String?
+  password_hash         String
+  role                  String                 @default("customer") // customer | owner
+  reset_password_token   String?
+  reset_password_expires DateTime?
+  created_at            DateTime               @default(now())
+  updated_at            DateTime               @updatedAt
+
+  addresses             Address[]
+  orders                Order[]
+  custom_orders         CustomOrderRequest[]
+  workshop_registrations WorkshopRegistration[]
+
+  @@map("users")
+}
+
+model Address {
+  id         Int     @id @default(autoincrement())
+  user_id    Int
+  line1      String
+  line2      String?
+  city       String
+  state      String
+  pincode    String
+  country    String  @default("India")
+  is_default Boolean @default(false)
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("addresses")
+}
+
+model ProductCategory {
+  id   Int    @id @default(autoincrement())
+  name String
+  slug String @unique
+
+  products         Product[]
+  navigation_items NavigationItem[]
+
+  @@map("product_categories")
+}
+
+model Product {
+  id           Int      @id @default(autoincrement())
+  name         String
+  slug         String   @unique
+  description  String   @db.Text
+  price        Decimal  @db.Decimal(10, 2)
+  category_id  Int
+  material     String?
+  care         String?
+  customizable             Boolean  @default(false)
+  show_in_design_gallery  Boolean  @default(false)
+  design_gallery_category String?
+  featured                 Boolean  @default(false)
+  new_arrival              Boolean  @default(false)
+  status                   String   @default("active") // draft | active | hidden | deleted
+  created_at               DateTime @default(now())
+  updated_at               DateTime @updatedAt
+
+  category ProductCategory @relation(fields: [category_id], references: [id])
+
+  images        ProductImage[]
+  variants      ProductVariant[]
+  filter_values ProductFilterValue[]
+  order_items   OrderItem[]
+  reviews       Review[]
+  custom_orders CustomOrderRequest[]
+
+  @@map("products")
+}
+
+model ProductImage {
+  id            Int    @id @default(autoincrement())
+  product_id    Int
+  url           String
+  display_order Int    @default(0)
+
+  product Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@map("product_images")
+}
+
+model ProductVariant {
+  id           Int     @id @default(autoincrement())
+  product_id   Int
+  size         String?
+  color        String?
+  stock        Int     @default(0)
+  out_of_stock Boolean @default(false)
+
+  product Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@map("product_variants")
+}
+
+model Filter {
+  id         Int     @id @default(autoincrement())
+  name       String
+  slug       String  @unique
+  type       String  // single-select | multi-select | color-swatch | range
+  range_min  Float?
+  range_max  Float?
+  range_unit String?
+  active     Boolean @default(true)
+
+  options                 FilterOption[]
+  product_filter_values   ProductFilterValue[]
+  navigation_item_filters NavigationItemFilter[]
+
+  @@map("filters")
+}
+
+model FilterOption {
+  id        Int     @id @default(autoincrement())
+  filter_id Int
+  label     String
+  value     String
+  hex       String?
+
+  filter Filter @relation(fields: [filter_id], references: [id], onDelete: Cascade)
+
+  @@map("filter_options")
+}
+
+model ProductFilterValue {
+  id         Int    @id @default(autoincrement())
+  product_id Int
+  filter_id  Int
+  value      String
+
+  product Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  filter  Filter  @relation(fields: [filter_id], references: [id], onDelete: Cascade)
+
+  @@map("product_filter_values")
+}
+
+model NavigationItem {
+  id            Int     @id @default(autoincrement())
+  label         String
+  link_type     String  // category | page | external
+  category_id   Int?
+  page_slug     String?
+  external_url  String?
+  display_order Int     @default(0)
+  visible       Boolean @default(true)
+
+  category ProductCategory? @relation(fields: [category_id], references: [id], onDelete: SetNull)
+
+  navigation_item_filters NavigationItemFilter[]
+
+  @@map("navigation_items")
+}
+
+model NavigationItemFilter {
+  id                 Int @id @default(autoincrement())
+  navigation_item_id Int
+  filter_id          Int
+  display_order      Int @default(0)
+
+  navigation_item NavigationItem @relation(fields: [navigation_item_id], references: [id], onDelete: Cascade)
+  filter          Filter         @relation(fields: [filter_id], references: [id], onDelete: Cascade)
+
+  @@map("navigation_item_filters")
+}
+
+model Order {
+  id                      Int       @id @default(autoincrement())
+  user_id                 Int?
+  subtotal                Decimal   @db.Decimal(10, 2)
+  shipping                Decimal   @db.Decimal(10, 2)
+  total                   Decimal   @db.Decimal(10, 2)
+  status                  String    @default("Pending") // Pending | Processing | Shipped | Delivered | Cancelled
+  shipping_address_line1 String
+  shipping_address_line2 String?
+  shipping_city          String
+  shipping_state         String
+  shipping_pincode       String
+  shipping_country       String    @default("India")
+  contact_email           String
+  contact_phone           String
+  payment_status          String    @default("Pending") // Pending | Paid | Failed | Refunded
+  razorpay_order_id       String?   @unique
+  razorpay_payment_id     String?
+  razorpay_signature      String?
+  payment_verified_at     DateTime?
+  return_policy_agreed    Boolean   @default(false)
+  return_policy_agreed_at DateTime?
+  return_requested        Boolean   @default(false)
+  return_requested_at     DateTime?
+  coupon_code             String?
+  discount_amount         Decimal?  @default(0.00) @db.Decimal(10, 2)
+  created_at              DateTime  @default(now())
+
+  user  User?       @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  items OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id                    Int     @id @default(autoincrement())
+  order_id              Int
+  product_id            Int?
+  product_name_snapshot String
+  size                  String?
+  color                 String?
+  quantity              Int
+  price_snapshot        Decimal @db.Decimal(10, 2)
+
+  order   Order    @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [product_id], references: [id], onDelete: SetNull)
+
+  @@map("order_items")
+}
+
+model CustomOrderRequest {
+  id                         Int      @id @default(autoincrement())
+  user_id                    Int?
+  base_product_id            Int?
+  base_product_name_snapshot String?
+  name                       String
+  email                      String
+  phone                      String
+  product_type               String
+  age                        String?
+  size                       String?
+  preferred_color            String?
+  occasion                   String?
+  desired_date               String?
+  custom_requirements        String   @db.Text
+  reference_image_url        String?
+  additional_notes           String?  @db.Text
+  owner_response             String?  @db.Text
+  quoted_price               Decimal? @default(0.00) @db.Decimal(10, 2)
+  status                     String   @default("New") // New | In Review | Quoted | In Production | Completed | Declined
+  created_at                 DateTime @default(now())
+
+  user               User?                                  @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  base_product       Product?                               @relation(fields: [base_product_id], references: [id], onDelete: SetNull)
+  gallery_selections CustomOrderRequestGallerySelection[]
+
+  @@map("custom_order_requests")
+}
+
+model CustomOrderRequestGallerySelection {
+  id                      Int     @id @default(autoincrement())
+  custom_order_request_id Int
+  design_gallery_image_id Int?
+  image_url_snapshot     String
+  caption_snapshot        String?
+  note                    String?
+
+  custom_order_request CustomOrderRequest  @relation(fields: [custom_order_request_id], references: [id], onDelete: Cascade)
+  design_gallery_image DesignGalleryImage? @relation(fields: [design_gallery_image_id], references: [id], onDelete: SetNull)
+
+  @@map("custom_order_request_gallery_selections")
+}
+
+model DesignGalleryCategory {
+  id            Int                 @id @default(autoincrement())
+  name          String
+  display_order Int                 @default(0)
+
+  images        DesignGalleryImage[]
+
+  @@map("design_gallery_categories")
+}
+
+model DesignGalleryImage {
+  id          Int      @id @default(autoincrement())
+  category_id Int
+  image_url   String
+  caption     String?
+  tags        Json?    // String array stored as JSON
+  visible     Boolean  @default(true)
+  created_at  DateTime @default(now())
+
+  category DesignGalleryCategory @relation(fields: [category_id], references: [id], onDelete: Cascade)
+
+  gallery_selections CustomOrderRequestGallerySelection[]
+
+  @@map("design_gallery_images")
+}
+
+model Workshop {
+  id                    Int      @id @default(autoincrement())
+  title                 String
+  slug                  String   @unique
+  description           String   @db.Text
+  cover_image           String?
+  date                  String
+  time                  String
+  duration              String?
+  location              String
+  is_online             Boolean  @default(false)
+  meeting_link          String?
+  seats_total           Int
+  seats_filled          Int      @default(0)
+  price                 Decimal  @db.Decimal(10, 2)
+  is_free               Boolean  @default(false)
+  skill_level           String   @default("All Levels")
+  registration_deadline String?
+  status                String   @default("Upcoming") // Upcoming | In Progress | Completed | Cancelled
+  created_at            DateTime @default(now())
+  updated_at            DateTime @updatedAt
+
+  registrations WorkshopRegistration[]
+
+  @@map("workshops")
+}
+
+model WorkshopRegistration {
+  id             Int      @id @default(autoincrement())
+  workshop_id    Int
+  user_id        Int?
+  name           String
+  email          String
+  phone          String
+  seats_booked   Int      @default(1)
+  notes          String?
+  payment_status String   @default("Pending") // Pending | Paid | Free
+  status         String   @default("Confirmed") // Confirmed | Cancelled
+  created_at     DateTime @default(now())
+
+  workshop Workshop @relation(fields: [workshop_id], references: [id], onDelete: Cascade)
+  user     User?    @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@map("workshop_registrations")
+}
+
+model CommunityMember {
+  id         Int      @id @default(autoincrement())
+  name       String
+  email      String   @unique
+  phone      String?
+  source     String   @default("Newsletter")
+  status     String   @default("Active")
+  created_at DateTime @default(now())
+
+  @@map("community_members")
+}
+
+model ContactMessage {
+  id         Int      @id @default(autoincrement())
+  name       String
+  email      String
+  phone      String?
+  subject    String   @default("General Inquiry")
+  message    String   @db.Text
+  status     String   @default("New") // New | Read | Replied | Archived
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("contact_messages")
+}
+
+model Review {
+  id                Int      @id @default(autoincrement())
+  product_id        Int?
+  product_slug      String
+  product_name      String
+  customer_name     String
+  customer_email    String
+  rating            Int
+  headline          String
+  comment           String   @db.Text
+  status            String   @default("approved") // pending | approved | rejected
+  verified_purchase Boolean  @default(false)
+  created_at        DateTime @default(now())
+
+  product Product? @relation(fields: [product_id], references: [id], onDelete: SetNull)
+
+  @@map("reviews")
+}
+
+model RevokedToken {
+  id         Int      @id @default(autoincrement())
+  token_id   String   @unique
+  user_id    String
+  role       String
+  reason     String   @default("logout")
+  expires_at DateTime
+  created_at DateTime @default(now())
+
+  @@map("revoked_tokens")
+}
+
+model Coupon {
+  id                 Int       @id @default(autoincrement())
+  code               String    @unique
+  discount_type      String    // "percentage" | "flat"
+  discount_value     Decimal   @db.Decimal(10, 2)
+  max_discount       Decimal?  @db.Decimal(10, 2)
+  min_order_value    Decimal?  @db.Decimal(10, 2)
+  valid_from         DateTime  @default(now())
+  valid_until        DateTime
+  usage_limit        Int?
+  usage_count        Int       @default(0)
+  per_customer_limit Int?      @default(1)
+  active             Boolean   @default(true)
+  internal_note      String?   @db.Text
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
+
+  @@map("coupons")
+}

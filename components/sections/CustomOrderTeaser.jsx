@@ -4,7 +4,7 @@ import { getWhatsAppUrl } from '@/lib/config';
 
 export default function CustomOrderTeaser() {
   return (
-    <section className="py-24 lg:py-32 bg-surfaceAlt relative overflow-hidden" aria-labelledby="custom-teaser-heading">
+    <section className="py-24 lg:py-32 bg-mocha-soft border-y border-border/60 relative overflow-hidden" aria-labelledby="custom-teaser-heading">
       {/* Subtle background decoration */}
       <div
         className="absolute inset-0 opacity-15 pointer-events-none"

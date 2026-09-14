@@ -1,14 +1,10 @@
 /**
- * Admin Contact Messages API Route
+ * Admin Contact Messages API Route (MySQL / Prisma)
  * GET /api/admin/contact-messages
- * ────────────────────────────────────────────────────────────────────────────
- * Protected: Owner JWT required.
- * Returns list of customer contact messages submitted via /contact.
  */
 
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/db';
-import ContactMessage from '@/models/ContactMessage';
+import prisma from '@/lib/prisma';
 import { requireAuth, applySecurityHeaders, handleApiError } from '@/lib/security';
 
 export const dynamic = 'force-dynamic';
@@ -21,18 +17,30 @@ export async function GET(request) {
       return applySecurityHeaders(resp, request);
     }
 
-    await connectDB();
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
 
-    const query = {};
+    const where = {};
     if (status && status !== 'all') {
-      query.status = status;
+      where.status = status;
     }
 
-    const messages = await ContactMessage.find(query)
-      .sort({ createdAt: -1 })
-      .lean();
+    const rawMessages = await prisma.contactMessage.findMany({
+      where,
+      orderBy: { created_at: 'desc' },
+    });
+
+    const messages = rawMessages.map(m => ({
+      _id: String(m.id),
+      id: String(m.id),
+      name: m.name,
+      email: m.email,
+      phone: m.phone || '',
+      subject: m.subject,
+      message: m.message,
+      status: m.status,
+      createdAt: m.created_at,
+    }));
 
     const resp = NextResponse.json({ messages });
     return applySecurityHeaders(resp, request);

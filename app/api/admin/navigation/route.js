@@ -1,7 +1,10 @@
+/**
+ * Admin Navigation API (MySQL / Prisma)
+ * GET & POST /api/admin/navigation
+ */
+
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/db';
-import NavigationItem from '@/models/NavigationItem';
-import ProductCategory from '@/models/ProductCategory';
+import prisma from '@/lib/prisma';
 import { getAuthFromRequest } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -23,8 +26,30 @@ export async function GET(request) {
   }
 
   try {
-    await connectDB();
-    const items = await NavigationItem.find({}).sort({ order: 1 }).lean();
+    const rawItems = await prisma.navigationItem.findMany({
+      include: {
+        category: true,
+        navigation_item_filters: { include: { filter: true } },
+      },
+      orderBy: { display_order: 'asc' },
+    });
+
+    const items = rawItems.map(item => ({
+      _id: String(item.id),
+      id: String(item.id),
+      label: item.label,
+      linkType: item.link_type,
+      categorySlug: item.category?.slug || '',
+      pageSlug: item.page_slug || '',
+      externalUrl: item.external_url || '',
+      order: item.display_order,
+      visible: item.visible,
+      assignedFilters: item.navigation_item_filters.map(nif => ({
+        filterId: String(nif.filter_id),
+        order: nif.display_order,
+      })),
+    }));
+
     return NextResponse.json({ success: true, items });
   } catch (error) {
     console.error('[API/Admin/Navigation GET Error]:', error);
@@ -39,7 +64,6 @@ export async function POST(request) {
   }
 
   try {
-    await connectDB();
     const body = await request.json();
     const { label, linkType, categorySlug, pageSlug, externalUrl, visible } = body;
 
@@ -48,34 +72,41 @@ export async function POST(request) {
     }
 
     const type = linkType || 'page';
+    let categoryId = null;
 
-    // Find highest order
-    const lastItem = await NavigationItem.findOne({}).sort({ order: -1 }).lean();
-    const nextOrder = lastItem ? lastItem.order + 1 : 0;
-
-    let finalCategorySlug = '';
     if (type === 'category') {
-      finalCategorySlug = slugify(categorySlug || label);
-      // Auto-upsert into ProductCategory schema
-      await ProductCategory.updateOne(
-        { slug: finalCategorySlug },
-        { $setOnInsert: { slug: finalCategorySlug, label: label.trim(), order: nextOrder } },
-        { upsert: true }
-      );
+      const finalCategorySlug = slugify(categorySlug || label);
+      let cat = await prisma.productCategory.findFirst({ where: { slug: finalCategorySlug } });
+      if (!cat) {
+        cat = await prisma.productCategory.create({
+          data: { name: label.trim(), slug: finalCategorySlug },
+        });
+      }
+      categoryId = cat.id;
     }
 
-    const newItem = await NavigationItem.create({
-      label: label.trim(),
-      linkType: type,
-      categorySlug: type === 'category' ? finalCategorySlug : '',
-      pageSlug: type === 'page' ? (pageSlug || '/') : '',
-      externalUrl: type === 'external' ? (externalUrl || '') : '',
-      order: nextOrder,
-      visible: visible !== undefined ? Boolean(visible) : true,
-      isFixed: false,
+    const count = await prisma.navigationItem.count();
+
+    const newItem = await prisma.navigationItem.create({
+      data: {
+        label: label.trim(),
+        link_type: type,
+        category_id: categoryId,
+        page_slug: type === 'page' ? (pageSlug || '/') : null,
+        external_url: type === 'external' ? (externalUrl || '') : null,
+        display_order: count,
+        visible: visible !== undefined ? Boolean(visible) : true,
+      },
     });
 
-    return NextResponse.json({ success: true, item: newItem }, { status: 201 });
+    return NextResponse.json({
+      success: true,
+      item: {
+        _id: String(newItem.id),
+        id: String(newItem.id),
+        label: newItem.label,
+      },
+    }, { status: 201 });
   } catch (error) {
     console.error('[API/Admin/Navigation POST Error]:', error);
     return NextResponse.json({ message: 'Server error creating nav item' }, { status: 500 });

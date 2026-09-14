@@ -1,14 +1,10 @@
 /**
- * Admin Single Customer API
+ * Admin Single Customer API (MySQL / Prisma)
  * GET /api/admin/customers/[id]
- * ────────────────────────────────────────────────────────────────────────────
- * Returns a single customer with their order history. Protected: owner JWT (security layer).
  */
 
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/db';
-import User from '@/models/User';
-import Order from '@/models/Order';
+import prisma from '@/lib/prisma';
 import { requireAuth, applySecurityHeaders, handleApiError } from '@/lib/security';
 
 export const dynamic = 'force-dynamic';
@@ -21,21 +17,48 @@ export async function GET(request, { params }) {
       return applySecurityHeaders(resp, request);
     }
 
-    await connectDB();
-    const id = params?.id;
-
-    const customer = await User.findById(id)
-      .select('-passwordHash -resetPasswordToken -resetPasswordExpires')
-      .lean();
-
-    if (!customer || customer.role !== 'customer') {
+    const id = Number(params?.id);
+    if (isNaN(id)) {
       const resp = NextResponse.json({ message: 'Customer not found' }, { status: 404 });
       return applySecurityHeaders(resp, request);
     }
 
-    const orders = await Order.find({ userId: id })
-      .sort({ createdAt: -1 })
-      .lean();
+    const c = await prisma.user.findUnique({
+      where: { id },
+      include: {
+        addresses: true,
+        orders: { include: { items: true }, orderBy: { created_at: 'desc' } },
+      },
+    });
+
+    if (!c || c.role !== 'customer') {
+      const resp = NextResponse.json({ message: 'Customer not found' }, { status: 404 });
+      return applySecurityHeaders(resp, request);
+    }
+
+    const customer = {
+      _id: String(c.id),
+      id: String(c.id),
+      name: c.name,
+      email: c.email,
+      phone: c.phone || '',
+      role: c.role,
+      createdAt: c.created_at,
+      addresses: c.addresses,
+    };
+
+    const orders = c.orders.map(o => ({
+      _id: String(o.id),
+      id: String(o.id),
+      total: Number(o.total),
+      status: o.status,
+      createdAt: o.created_at,
+      items: o.items.map(i => ({
+        name: i.product_name_snapshot,
+        price: Number(i.price_snapshot),
+        quantity: i.quantity,
+      })),
+    }));
 
     const resp = NextResponse.json({ customer, orders });
     return applySecurityHeaders(resp, request);

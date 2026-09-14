@@ -213,10 +213,10 @@ function ShopContent() {
   const activeSEO = categorySEOConfig[selectedCategory] || categorySEOConfig.all;
 
   return (
-    <div className="pt-24 pb-0 bg-ivory">
+    <div className="shop-page-theme pt-24 pb-0 bg-ivory">
       <div className="site-container">
         {/* Header Hero Section with Galaxy Background */}
-        <div className="relative mb-10 p-6 md:p-10 rounded-2xl bg-cream/40 border border-warmBrown/15 shadow-sm overflow-hidden min-h-[220px] flex items-center">
+        <div className="shop-header-hero relative mb-8 p-6 md:p-10 rounded-2xl border border-warmBrown/20 shadow-sm overflow-hidden min-h-[220px] flex items-center">
           {/* Galaxy background component */}
           <div className="absolute inset-0 z-0 opacity-65 pointer-events-auto">
             <Galaxy
@@ -251,9 +251,9 @@ function ShopContent() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setIsSearchOpen(true)}
-                className="px-4 py-2 bg-ivory/90 backdrop-blur-sm border border-border text-label-md uppercase tracking-[0.14em] text-charcoal hover:border-charcoal transition-colors flex items-center gap-2 shadow-xs"
+                className="shop-btn-secondary px-4 py-2 bg-ivory/90 backdrop-blur-sm border border-border text-label-md uppercase tracking-[0.14em] text-charcoal hover:border-charcoal transition-colors flex items-center gap-2 shadow-xs"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-warmBrown" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-[#191919]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
                 </svg>
                 Search
@@ -262,7 +262,7 @@ function ShopContent() {
               {/* Mobile Filter Toggle */}
               <button
                 onClick={() => setMobileFilterOpen(true)}
-                className="lg:hidden px-4 py-2 bg-charcoal text-ivory text-label-md uppercase tracking-[0.14em] flex items-center gap-2 shadow-xs"
+                className="shop-btn-primary lg:hidden px-4 py-2 bg-charcoal text-ivory text-label-md uppercase tracking-[0.14em] flex items-center gap-2 shadow-xs"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0m-9.75 0h9.75" />

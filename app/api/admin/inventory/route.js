@@ -1,13 +1,10 @@
 /**
- * Admin Inventory API
+ * Admin Inventory API (MySQL / Prisma)
  * GET /api/admin/inventory
- * ────────────────────────────────────────────────────────────────────────────
- * Returns all products with stock information. Protected: owner JWT.
  */
 
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/db';
-import Product from '@/models/Product';
+import prisma from '@/lib/prisma';
 import { getAuthFromRequest } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -19,11 +16,35 @@ export async function GET(request) {
   }
 
   try {
-    await connectDB();
+    const rawProducts = await prisma.product.findMany({
+      include: {
+        category: true,
+        variants: true,
+      },
+      orderBy: { name: 'asc' },
+    });
 
-    const products = await Product.find()
-      .sort({ category: 1, name: 1 })
-      .lean();
+    const products = rawProducts.map((p) => {
+      const stock = p.variants.reduce((acc, curr) => acc + curr.stock, 0);
+      return {
+        _id: String(p.id),
+        id: String(p.id),
+        name: p.name,
+        slug: p.slug,
+        category: p.category.slug,
+        categoryName: p.category.name,
+        price: Number(p.price),
+        stock,
+        status: p.status,
+        variants: p.variants.map(v => ({
+          id: String(v.id),
+          size: v.size,
+          color: v.color,
+          stock: v.stock,
+          outOfStock: v.out_of_stock,
+        })),
+      };
+    });
 
     return NextResponse.json({ products });
 

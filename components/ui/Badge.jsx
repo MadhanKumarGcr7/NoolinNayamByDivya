@@ -5,12 +5,12 @@
  */
 
 const variants = {
-  default:       'bg-oatmeal text-charcoal-600',
-  'new-arrival': 'bg-blush-light text-warmBrown',
-  bestseller:    'bg-sand text-warmBrown',
-  'made-to-order':'bg-sage-light text-charcoal-600',
-  featured:      'bg-charcoal text-ivory',
-  sale:          'bg-warmBrown text-ivory',
+  default:       'bg-[#E2D3CB] text-[#191919] border border-[#E2D3CB]',
+  'new-arrival': 'bg-[#E2D3CB] text-[#191919] border border-[#CAB8A2]',
+  bestseller:    'bg-[#CAB8A2] text-[#191919] border border-[#CAB8A2]',
+  'made-to-order':'bg-[#E2D3CB] text-[#191919] border border-[#CAB8A2]',
+  featured:      'bg-[#191919] text-white border border-[#191919]',
+  sale:          'bg-[#BD9F86] text-[#191919] border border-[#BD9F86]',
 };
 
 export default function Badge({ label, variant = 'default', className = '' }) {

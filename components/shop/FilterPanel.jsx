@@ -142,7 +142,7 @@ export default function FilterPanel({
 
   return (
     <aside
-      className="w-full flex flex-col gap-6 bg-cream/30 border border-border/80 p-6 shadow-warm-xs sticky top-28"
+      className="shop-filter-panel w-full flex flex-col gap-6 section-highlight-copper-vertical border border-border/80 p-6 shadow-warm-xs sticky top-28 rounded-xl"
       aria-label="Product Filters"
     >
       {/* Filter Header */}
@@ -212,7 +212,7 @@ export default function FilterPanel({
                   onClick={() => toggleSize(size)}
                   className={`px-3 py-1.5 text-label-md font-sans transition-all border ${
                     active
-                      ? 'bg-charcoal text-ivory border-charcoal'
+                      ? 'bg-charcoal text-ivory border-charcoal shop-active-filter'
                       : 'bg-ivory text-charcoal-600 border-border hover:border-charcoal-400'
                   }`}
                 >
@@ -275,7 +275,7 @@ export default function FilterPanel({
                       onClick={() => handleCustomToggle(filter.slug, opt.value, isSingle)}
                       className={`px-3 py-1.5 text-label-md font-sans transition-all border ${
                         active
-                          ? 'bg-charcoal text-ivory border-charcoal'
+                          ? 'bg-charcoal text-ivory border-charcoal shop-active-filter'
                           : 'bg-ivory text-charcoal-600 border-border hover:border-charcoal-400'
                       }`}
                     >

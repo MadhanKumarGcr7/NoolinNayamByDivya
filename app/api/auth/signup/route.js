@@ -1,13 +1,12 @@
 /**
- * Customer Signup API — POST /api/auth/signup
+ * Customer Signup API — POST /api/auth/signup (MySQL / Prisma)
  * ────────────────────────────────────────────────────────────────────────────
- * Hardened customer registration with NoSQL sanitization, rate limiting,
- * password hashing, short-lived access tokens, and httpOnly rotating refresh cookies.
+ * Hardened customer registration with input sanitization, rate limiting,
+ * password hashing, short-lived access tokens, and httpOnly refresh cookies.
  */
 
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/db';
-import User from '@/models/User';
+import prisma from '@/lib/prisma';
 import { hashPassword } from '@/lib/auth';
 import {
   sanitizeRequestData,
@@ -25,7 +24,6 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
   try {
-    // 1. Rate limiting check
     const rateCheck = checkApiRateLimit(request, 'auth_signup');
     if (!rateCheck.allowed) {
       const resp = NextResponse.json(
@@ -35,10 +33,8 @@ export async function POST(request) {
       return applySecurityHeaders(resp, request);
     }
 
-    // 2. Input sanitization (NoSQL injection protection)
     const { body } = await sanitizeRequestData(request);
 
-    // 3. Schema validation
     const validation = validateSignup(body);
     if (!validation.valid) {
       const resp = NextResponse.json({ message: validation.errors.join(' ') }, { status: 400 });
@@ -47,10 +43,7 @@ export async function POST(request) {
 
     const { name, email, password, phone } = validation.data;
 
-    await connectDB();
-
-    // 4. Check for existing user
-    const existing = await User.findOne({ email });
+    const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
       const resp = NextResponse.json(
         { message: 'An account with this email address already exists.' },
@@ -59,35 +52,34 @@ export async function POST(request) {
       return applySecurityHeaders(resp, request);
     }
 
-    // 5. Hash password (12 bcrypt rounds)
-    const passwordHash = await hashPassword(password);
+    const password_hash = await hashPassword(password);
 
-    // 6. Create customer record
-    const newUser = await User.create({
-      name,
-      email,
-      passwordHash,
-      phone,
-      role: 'customer',
+    const newUser = await prisma.user.create({
+      data: {
+        name,
+        email,
+        password_hash,
+        phone: phone || null,
+        role: 'customer',
+      },
     });
 
     logSecurityEvent({
       event: 'CUSTOMER_SIGNUP',
-      userId: newUser._id.toString(),
+      userId: String(newUser.id),
       role: 'customer',
       path: '/api/auth/signup',
       outcome: 'SUCCESS',
     });
 
-    // 7. Issue access + refresh token pair
-    const accessToken = signAccessToken({ userId: newUser._id.toString(), role: 'customer' });
-    const { token: refreshToken } = signRefreshToken({ userId: newUser._id.toString(), role: 'customer' });
+    const accessToken = signAccessToken({ userId: String(newUser.id), role: 'customer' });
+    const { token: refreshToken } = signRefreshToken({ userId: String(newUser.id), role: 'customer' });
 
     let response = NextResponse.json(
       {
         success: true,
         user: {
-          id: newUser._id.toString(),
+          id: String(newUser.id),
           name: newUser.name,
           email: newUser.email,
           phone: newUser.phone || '',
@@ -97,7 +89,6 @@ export async function POST(request) {
       { status: 201 }
     );
 
-    // Attach httpOnly cookies & security headers
     response = setSessionCookies(response, {
       accessToken,
       refreshToken,

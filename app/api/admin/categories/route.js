@@ -1,7 +1,10 @@
+/**
+ * Admin Categories API (MySQL / Prisma)
+ * GET & DELETE /api/admin/categories
+ */
+
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/db';
-import ProductCategory from '@/models/ProductCategory';
-import NavigationItem from '@/models/NavigationItem';
+import prisma from '@/lib/prisma';
 import { getAuthFromRequest } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -13,36 +16,18 @@ export async function GET(request) {
   }
 
   try {
-    await connectDB();
-
-    const [dbCategories, navItems] = await Promise.all([
-      ProductCategory.find({}).sort({ label: 1 }).lean(),
-      NavigationItem.find({ linkType: 'category' }).lean(),
-    ]);
-
-    const categoriesMap = new Map();
-
-    // Default categories
-    [
-      { slug: 'crochet', label: 'Crochet' },
-      { slug: 'kidswear', label: 'Kids Dresses / Kidswear' },
-      { slug: 'babywear', label: 'Babywear / Rompers' },
-      { slug: 'custom', label: 'Custom Made' },
-    ].forEach((c) => categoriesMap.set(c.slug, c));
-
-    // Nav items
-    (navItems || []).forEach((n) => {
-      if (n.categorySlug) {
-        categoriesMap.set(n.categorySlug, { slug: n.categorySlug, label: n.label });
-      }
+    const dbCategories = await prisma.productCategory.findMany({
+      orderBy: { name: 'asc' },
     });
 
-    // DB categories
-    (dbCategories || []).forEach((c) => {
-      categoriesMap.set(c.slug, { slug: c.slug, label: c.label });
-    });
+    const categories = dbCategories.map(c => ({
+      _id: String(c.id),
+      id: String(c.id),
+      slug: c.slug,
+      label: c.name,
+      name: c.name,
+    }));
 
-    const categories = Array.from(categoriesMap.values());
     return NextResponse.json({ success: true, categories });
   } catch (error) {
     console.error('[API/Admin/Categories GET Error]:', error);
@@ -57,7 +42,6 @@ export async function DELETE(request) {
   }
 
   try {
-    await connectDB();
     const { searchParams } = new URL(request.url);
     const slug = searchParams.get('slug');
 
@@ -65,11 +49,13 @@ export async function DELETE(request) {
       return NextResponse.json({ message: 'Category slug is required' }, { status: 400 });
     }
 
-    await ProductCategory.deleteOne({ slug: slug.toLowerCase() });
+    await prisma.productCategory.deleteMany({
+      where: { slug: slug.toLowerCase() },
+    });
 
     return NextResponse.json({
       success: true,
-      message: `Product category "${slug}" deleted. Note: Products with this category remain in database.`,
+      message: `Product category "${slug}" deleted.`,
     });
   } catch (error) {
     console.error('[API/Admin/Categories DELETE Error]:', error);

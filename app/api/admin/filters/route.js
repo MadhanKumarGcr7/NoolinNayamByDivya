@@ -1,6 +1,10 @@
+/**
+ * Admin Filters API (MySQL / Prisma)
+ * GET & POST /api/admin/filters
+ */
+
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/db';
-import Filter from '@/models/Filter';
+import prisma from '@/lib/prisma';
 import { getAuthFromRequest } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -22,8 +26,27 @@ export async function GET(request) {
   }
 
   try {
-    await connectDB();
-    const filters = await Filter.find({}).sort({ order: 1 }).lean();
+    const rawFilters = await prisma.filter.findMany({
+      include: { options: true },
+    });
+
+    const filters = rawFilters.map(f => ({
+      _id: String(f.id),
+      id: String(f.id),
+      name: f.name,
+      slug: f.slug,
+      type: f.type,
+      options: f.options.map(o => ({
+        label: o.label,
+        value: o.value,
+        hex: o.hex,
+      })),
+      rangeMin: f.range_min,
+      rangeMax: f.range_max,
+      rangeUnit: f.range_unit,
+      active: f.active,
+    }));
+
     return NextResponse.json({ success: true, filters });
   } catch (error) {
     console.error('[API/Admin/Filters GET Error]:', error);
@@ -38,40 +61,51 @@ export async function POST(request) {
   }
 
   try {
-    await connectDB();
     const body = await request.json();
-    const { name, type, options, rangeMin, rangeMax, rangeUnit, rangeStep, active } = body;
+    const { name, type, options, rangeMin, rangeMax, rangeUnit, active } = body;
 
     if (!name || !name.trim()) {
       return NextResponse.json({ message: 'Filter name is required' }, { status: 400 });
     }
 
     let slug = slugify(name);
-    let existing = await Filter.findOne({ slug });
+    let existing = await prisma.filter.findUnique({ where: { slug } });
     let counter = 1;
     while (existing) {
       slug = `${slugify(name)}-${counter}`;
-      existing = await Filter.findOne({ slug });
+      existing = await prisma.filter.findUnique({ where: { slug } });
       counter++;
     }
 
-    const lastFilter = await Filter.findOne({}).sort({ order: -1 }).lean();
-    const nextOrder = lastFilter ? lastFilter.order + 1 : 0;
-
-    const newFilter = await Filter.create({
-      name: name.trim(),
-      slug,
-      type: type || 'multi-select',
-      options: Array.isArray(options) ? options : [],
-      rangeMin: rangeMin !== undefined ? Number(rangeMin) : 0,
-      rangeMax: rangeMax !== undefined ? Number(rangeMax) : 10000,
-      rangeUnit: rangeUnit || '₹',
-      rangeStep: rangeStep !== undefined ? Number(rangeStep) : 100,
-      active: active !== undefined ? Boolean(active) : true,
-      order: nextOrder,
+    const filter = await prisma.filter.create({
+      data: {
+        name: name.trim(),
+        slug,
+        type: type || 'multi-select',
+        range_min: rangeMin !== undefined ? Number(rangeMin) : null,
+        range_max: rangeMax !== undefined ? Number(rangeMax) : null,
+        range_unit: rangeUnit || '₹',
+        active: active !== undefined ? Boolean(active) : true,
+        options: {
+          create: (Array.isArray(options) ? options : []).map((o) => ({
+            label: o.label,
+            value: o.value,
+            hex: o.hex || null,
+          })),
+        },
+      },
+      include: { options: true },
     });
 
-    return NextResponse.json({ success: true, filter: newFilter }, { status: 201 });
+    return NextResponse.json({
+      success: true,
+      filter: {
+        _id: String(filter.id),
+        id: String(filter.id),
+        name: filter.name,
+        slug: filter.slug,
+      },
+    }, { status: 201 });
   } catch (error) {
     console.error('[API/Admin/Filters POST Error]:', error);
     return NextResponse.json({ message: 'Server error creating filter' }, { status: 500 });

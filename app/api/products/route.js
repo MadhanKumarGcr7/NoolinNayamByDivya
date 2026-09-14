@@ -1,104 +1,131 @@
 /**
- * Public Products API Route
+ * Public Products API Route (MySQL / Prisma)
  * GET /api/products
  * ────────────────────────────────────────────────────────────────────────────
- * Returns live active products for public storefront views.
- * Filters out hidden, draft, and deleted products.
- *
- * Auto-seeds MongoDB with seedProducts if MongoDB has 0 products on initial call.
+ * Returns active products for public storefront views.
  */
 
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/db';
-import Product from '@/models/Product';
+import prisma from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
   try {
-    await connectDB();
-
-
     const { searchParams } = new URL(request.url);
     const category   = searchParams.get('category');
     const featured   = searchParams.get('featured');
     const newArrival = searchParams.get('newArrival');
     const search     = searchParams.get('search');
     const limit      = parseInt(searchParams.get('limit') || '100', 10);
+    const sortParam  = searchParams.get('sort');
 
-    // Public query: exclude draft, hidden, and deleted products
-    const query = { status: { $nin: ['draft', 'hidden', 'deleted'] } };
+    const where = {
+      status: { notIn: ['draft', 'hidden', 'deleted'] },
+    };
 
     if (category && category !== 'all') {
       if (category === 'new-arrivals') {
-        query.newArrival = true;
+        where.new_arrival = true;
       } else if (category === 'custom') {
-        query.customizable = true;
+        where.customizable = true;
       } else {
-        const catRegexStr = category.replace(/[-_]/g, '[-\\s_]?');
-        const catRegex = new RegExp(`^${catRegexStr}$`, 'i');
-        query.$or = [
-          { category: catRegex },
-          { subcategory: catRegex },
-          { tags: { $in: [catRegex] } },
-        ];
+        const cat = await prisma.productCategory.findFirst({
+          where: { slug: category },
+        });
+        if (cat) {
+          where.category_id = cat.id;
+        } else {
+          where.OR = [
+            { name: { contains: category } },
+            { description: { contains: category } },
+          ];
+        }
       }
     }
 
     if (featured === 'true') {
-      query.featured = true;
+      where.featured = true;
     }
-
     if (newArrival === 'true') {
-      query.newArrival = true;
+      where.new_arrival = true;
     }
 
     if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
-        { category: { $regex: search, $options: 'i' } },
-        { tags: { $in: [new RegExp(search, 'i')] } },
+      where.OR = [
+        { name: { contains: search } },
+        { description: { contains: search } },
       ];
     }
 
-    const sortParam  = searchParams.get('sort');
-
-    let sortObj = { featured: -1, newArrival: -1, createdAt: -1 };
-    if (sortParam === 'most-sold') {
-      sortObj = { soldCount: -1, createdAt: -1 };
-    } else if (sortParam === 'most-wishlisted') {
-      sortObj = { wishlistCount: -1, createdAt: -1 };
-    } else if (sortParam === 'low-stock') {
-      sortObj = { stock: 1, createdAt: -1 };
-    } else if (sortParam === 'price-low') {
-      sortObj = { price: 1 };
+    let orderBy = { created_at: 'desc' };
+    if (sortParam === 'price-low') {
+      orderBy = { price: 'asc' };
     } else if (sortParam === 'price-high') {
-      sortObj = { price: -1 };
-    } else if (sortParam === 'newest') {
-      sortObj = { newArrival: -1, createdAt: -1 };
+      orderBy = { price: 'desc' };
     }
 
-    let products = await Product.find(query)
-      .sort(sortObj)
-      .limit(limit)
-      .lean();
+    let rawProducts = await prisma.product.findMany({
+      where,
+      include: {
+        category: true,
+        images: { orderBy: { display_order: 'asc' } },
+        variants: true,
+      },
+      orderBy,
+      take: limit,
+    });
 
-    // Fallback: If featured=true or newArrival=true resulted in 0 products (e.g. newly created products where flags aren't explicitly true), fetch all active products
-    if (products.length === 0 && (featured === 'true' || newArrival === 'true')) {
-      delete query.featured;
-      delete query.newArrival;
-      products = await Product.find(query)
-        .sort({ createdAt: -1 })
-        .limit(limit)
-        .lean();
+    if (rawProducts.length === 0 && (featured === 'true' || newArrival === 'true')) {
+      delete where.featured;
+      delete where.new_arrival;
+      rawProducts = await prisma.product.findMany({
+        where,
+        include: {
+          category: true,
+          images: { orderBy: { display_order: 'asc' } },
+          variants: true,
+        },
+        orderBy: { created_at: 'desc' },
+        take: limit,
+      });
     }
 
-    // Map Mongo `_id` to `id` for backwards compatibility with UI components
-    const mappedProducts = products.map((p) => ({
-      ...p,
-      id: p.id || p._id.toString(),
-    }));
+    const mappedProducts = rawProducts.map((p) => {
+      const images = p.images.map(img => img.url);
+      const sizes = Array.from(new Set(p.variants.map(v => v.size).filter(Boolean)));
+      const colors = Array.from(new Set(p.variants.map(v => v.color).filter(Boolean))).map(name => ({ name }));
+      const stock = p.variants.reduce((acc, curr) => acc + curr.stock, 0);
+
+      return {
+        _id: String(p.id),
+        id: String(p.id),
+        name: p.name,
+        slug: p.slug,
+        description: p.description,
+        price: Number(p.price),
+        category: p.category.slug,
+        categoryName: p.category.name,
+        material: p.material,
+        care: p.care,
+        customizable: p.customizable,
+        featured: p.featured,
+        newArrival: p.new_arrival,
+        status: p.status,
+        createdAt: p.created_at,
+        images,
+        sizes,
+        colors,
+        stock,
+        variants: p.variants.map(v => ({
+          id: String(v.id),
+          size: v.size,
+          color: v.color,
+          stock: v.stock,
+          outOfStock: v.out_of_stock,
+        })),
+      };
+    });
 
     return NextResponse.json({ products: mappedProducts });
 

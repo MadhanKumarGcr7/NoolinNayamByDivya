@@ -110,6 +110,16 @@ function AdminOrdersContent() {
                       <span className={`px-2 py-0.5 text-label-sm uppercase tracking-[0.12em] font-sans font-medium ${statusColors[order.status] || ''}`}>
                         {order.status}
                       </span>
+                      {order.paymentStatus && (
+                        <span className={`px-1.5 py-0.5 text-[9px] uppercase tracking-[0.12em] font-sans font-medium ${
+                          order.paymentStatus === 'paid' ? 'bg-sage-light text-sage-dark' :
+                          order.paymentStatus === 'refunded' ? 'bg-charcoal-200 text-charcoal-600' :
+                          order.paymentStatus === 'failed' ? 'bg-blush-light text-blush-dark' :
+                          'bg-sand/40 text-warmBrown'
+                        }`}>
+                          {order.paymentStatus}
+                        </span>
+                      )}
                       {order.returnRequested && (
                         <span className="px-1.5 py-0.5 bg-warmBrown/10 text-warmBrown border border-warmBrown/30 text-[9px] uppercase tracking-[0.12em] font-sans font-medium">
                           Return Requested

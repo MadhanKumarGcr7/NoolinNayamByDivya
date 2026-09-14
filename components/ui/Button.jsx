@@ -10,25 +10,25 @@
 
 const variants = {
   primary: `
-    bg-charcoal text-ivory border border-charcoal
-    hover:bg-warmBrown hover:border-warmBrown
-    focus-visible:ring-2 focus-visible:ring-charcoal focus-visible:ring-offset-2
+    bg-[#191919] text-white border border-[#191919]
+    hover:bg-[#333333] hover:border-[#333333]
+    focus-visible:ring-2 focus-visible:ring-[#191919] focus-visible:ring-offset-2
   `,
   secondary: `
-    bg-ivory text-charcoal border border-charcoal
-    hover:bg-charcoal hover:text-ivory
+    bg-[#CAB8A2] text-[#191919] border border-[#CAB8A2]
+    hover:bg-[#beaa92] hover:border-[#beaa92]
   `,
   ghost: `
     bg-transparent text-charcoal border border-transparent
-    hover:border-charcoal
+    hover:border-[#191919]
   `,
   outline: `
-    bg-transparent text-warmBrown border border-warmBrown
-    hover:bg-warmBrown hover:text-ivory
+    bg-transparent text-[#191919] border border-[#191919]
+    hover:bg-[#191919] hover:text-white
   `,
   blush: `
-    bg-blush text-charcoal border border-blush
-    hover:bg-blush-dark hover:border-blush-dark
+    bg-[#E2D3CB] text-[#191919] border border-[#E2D3CB]
+    hover:bg-[#d8c7be] hover:border-[#d8c7be]
   `,
 };
 

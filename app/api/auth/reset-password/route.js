@@ -1,13 +1,11 @@
 /**
- * Reset Password API
- * POST /api/auth/reset-password
+ * Reset Password API — POST /api/auth/reset-password (MySQL / Prisma)
  * ────────────────────────────────────────────────────────────────────────────
- * Validates reset token, hashes new password, updates user document.
+ * Validates reset token, hashes new password, updates user record.
  */
 
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/db';
-import User from '@/models/User';
+import prisma from '@/lib/prisma';
 import { hashPassword } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -17,7 +15,6 @@ export async function POST(request) {
     const body = await request.json();
     const { token, password, confirmPassword } = body;
 
-    // ── Validation ──────────────────────────────────────────────────────
     if (!token) {
       return NextResponse.json(
         { message: 'Reset token is required.' },
@@ -37,12 +34,11 @@ export async function POST(request) {
       );
     }
 
-    await connectDB();
-
-    // ── Find user with valid, non-expired token ─────────────────────────
-    const user = await User.findOne({
-      resetPasswordToken: token,
-      resetPasswordExpires: { $gt: new Date() },
+    const user = await prisma.user.findFirst({
+      where: {
+        reset_password_token: token,
+        reset_password_expires: { gt: new Date() },
+      },
     });
 
     if (!user) {
@@ -52,11 +48,16 @@ export async function POST(request) {
       );
     }
 
-    // ── Update password ─────────────────────────────────────────────────
-    user.passwordHash = await hashPassword(password);
-    user.resetPasswordToken = null;
-    user.resetPasswordExpires = null;
-    await user.save();
+    const password_hash = await hashPassword(password);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password_hash,
+        reset_password_token: null,
+        reset_password_expires: null,
+      },
+    });
 
     return NextResponse.json({
       success: true,

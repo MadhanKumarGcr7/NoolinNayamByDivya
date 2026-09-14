@@ -3,11 +3,15 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import useCartStore from '@/store/cartStore';
+import CouponInput from '@/components/cart/CouponInput';
 import { brandConfig } from '@/lib/config';
 
 export default function CartDrawer() {
-  const { items, itemCount, subtotal, isDrawerOpen, closeDrawer, removeItem, updateQuantity } = useCartStore();
+  const { items, itemCount, subtotal, isDrawerOpen, closeDrawer, removeItem, updateQuantity, appliedCoupon } = useCartStore();
   const { currencySymbol } = brandConfig.shipping;
+
+  const discountAmount = appliedCoupon?.discountAmount || 0;
+  const finalTotal = Math.max(0, subtotal - discountAmount);
 
   return (
     <>
@@ -103,9 +107,25 @@ export default function CartDrawer() {
                 Add {currencySymbol}{(brandConfig.shipping.freeShippingThreshold - subtotal).toLocaleString('en-IN')} more for free shipping
               </p>
             )}
-            <div className="flex justify-between items-center mb-4">
-              <span className="text-label-lg uppercase tracking-[0.14em] text-charcoal-600">Subtotal</span>
-              <span className="font-serif font-light text-charcoal text-xl">{currencySymbol}{subtotal.toLocaleString('en-IN')}</span>
+            <div className="space-y-2 mb-3">
+              <div className="flex justify-between items-center text-body-xs font-sans">
+                <span className="text-label-md uppercase tracking-[0.14em] text-charcoal-600">Subtotal</span>
+                <span className="font-serif font-light text-charcoal text-lg">{currencySymbol}{subtotal.toLocaleString('en-IN')}</span>
+              </div>
+              {appliedCoupon && (
+                <div className="flex justify-between items-center text-body-xs font-sans text-sage-dark font-medium">
+                  <span>Discount ({appliedCoupon.code})</span>
+                  <span>−{currencySymbol}{discountAmount.toLocaleString('en-IN')}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center text-body-xs font-sans border-t border-border/60 pt-2">
+                <span className="text-label-md uppercase tracking-[0.14em] text-charcoal font-medium">Est. Total</span>
+                <span className="font-serif font-light text-charcoal text-xl">{currencySymbol}{finalTotal.toLocaleString('en-IN')}</span>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <CouponInput />
             </div>
             <p className="text-body-xs text-charcoal-400 font-light mb-4 text-center">Shipping calculated at checkout</p>
             <Link href="/checkout" onClick={closeDrawer} className="w-full flex items-center justify-center gap-2 bg-charcoal text-ivory py-4 text-label-lg uppercase tracking-[0.16em] hover:bg-warmBrown transition-colors duration-400 mb-3">

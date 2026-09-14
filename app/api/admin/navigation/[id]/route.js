@@ -1,9 +1,10 @@
+/**
+ * Admin Navigation Item Operations API (MySQL / Prisma)
+ * PATCH & DELETE /api/admin/navigation/[id]
+ */
+
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/db';
-import NavigationItem from '@/models/NavigationItem';
-import ProductCategory from '@/models/ProductCategory';
-import Filter from '@/models/Filter';
-import Product from '@/models/Product';
+import prisma from '@/lib/prisma';
 import { getAuthFromRequest } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -25,63 +26,83 @@ export async function PATCH(request, { params }) {
   }
 
   try {
-    await connectDB();
-    const id = params?.id;
-    const body = await request.json();
+    const id = Number(params?.id);
+    if (isNaN(id)) {
+      return NextResponse.json({ message: 'Navigation item not found' }, { status: 404 });
+    }
 
-    const existing = await NavigationItem.findById(id);
+    const body = await request.json();
+    const existing = await prisma.navigationItem.findUnique({ where: { id } });
     if (!existing) {
       return NextResponse.json({ message: 'Navigation item not found' }, { status: 404 });
     }
 
     const { label, linkType, categorySlug, pageSlug, externalUrl, visible, assignedFilters } = body;
+    const data = {};
 
-    const updateData = {};
+    if (visible !== undefined) data.visible = Boolean(visible);
+    if (label !== undefined) data.label = label.trim();
+    if (linkType !== undefined) data.link_type = linkType;
 
-    if (visible !== undefined) updateData.visible = Boolean(visible);
-    if (assignedFilters !== undefined && Array.isArray(assignedFilters)) {
-      updateData.assignedFilters = assignedFilters.map((af, idx) => ({
-        filterId: af.filterId || af._id || af,
-        order: af.order !== undefined ? Number(af.order) : idx,
-      }));
+    const type = linkType !== undefined ? linkType : existing.link_type;
+
+    if (type === 'category') {
+      const catSlug = slugify(categorySlug || label || 'category');
+      let cat = await prisma.productCategory.findFirst({ where: { slug: catSlug } });
+      if (!cat) {
+        cat = await prisma.productCategory.create({
+          data: { name: (label || 'Category').trim(), slug: catSlug },
+        });
+      }
+      data.category_id = cat.id;
+      data.page_slug = null;
+      data.external_url = null;
+    } else if (type === 'page') {
+      data.page_slug = pageSlug !== undefined ? pageSlug : existing.page_slug;
+      data.category_id = null;
+      data.external_url = null;
+    } else if (type === 'external') {
+      data.external_url = externalUrl !== undefined ? externalUrl : existing.external_url;
+      data.category_id = null;
+      data.page_slug = null;
     }
 
-    if (!existing.isFixed) {
-      if (label !== undefined) updateData.label = label.trim();
-      if (linkType !== undefined) updateData.linkType = linkType;
+    await prisma.navigationItem.update({
+      where: { id },
+      data,
+    });
 
-      const type = linkType !== undefined ? linkType : existing.linkType;
-
-      if (type === 'category') {
-        const catSlug = slugify(categorySlug || label || existing.categorySlug);
-        updateData.categorySlug = catSlug;
-        updateData.pageSlug = '';
-        updateData.externalUrl = '';
-
-        // Auto-upsert into ProductCategory schema
-        await ProductCategory.updateOne(
-          { slug: catSlug },
-          { $setOnInsert: { slug: catSlug, label: (label || existing.label).trim(), order: existing.order } },
-          { upsert: true }
-        );
-      } else if (type === 'page') {
-        updateData.pageSlug = pageSlug !== undefined ? pageSlug : existing.pageSlug;
-        updateData.categorySlug = '';
-        updateData.externalUrl = '';
-      } else if (type === 'external') {
-        updateData.externalUrl = externalUrl !== undefined ? externalUrl : existing.externalUrl;
-        updateData.categorySlug = '';
-        updateData.pageSlug = '';
+    if (Array.isArray(assignedFilters)) {
+      await prisma.navigationItemFilter.deleteMany({ where: { navigation_item_id: id } });
+      for (let idx = 0; idx < assignedFilters.length; idx++) {
+        const af = assignedFilters[idx];
+        const filterId = Number(af.filterId || af.id || af);
+        if (!isNaN(filterId)) {
+          await prisma.navigationItemFilter.create({
+            data: {
+              navigation_item_id: id,
+              filter_id: filterId,
+              display_order: af.order !== undefined ? Number(af.order) : idx,
+            },
+          });
+        }
       }
     }
 
-    const updated = await NavigationItem.findByIdAndUpdate(
-      id,
-      { $set: updateData },
-      { new: true, runValidators: true }
-    ).lean();
+    const updated = await prisma.navigationItem.findUnique({
+      where: { id },
+      include: { category: true, navigation_item_filters: true },
+    });
 
-    return NextResponse.json({ success: true, item: updated });
+    return NextResponse.json({
+      success: true,
+      item: {
+        _id: String(updated.id),
+        id: String(updated.id),
+        label: updated.label,
+        visible: updated.visible,
+      },
+    });
   } catch (error) {
     console.error('[API/Admin/Navigation/[id] PATCH Error]:', error);
     return NextResponse.json({ message: 'Server error updating nav item' }, { status: 500 });
@@ -95,63 +116,16 @@ export async function DELETE(request, { params }) {
   }
 
   try {
-    await connectDB();
-    const id = params?.id;
-
-    const existing = await NavigationItem.findById(id);
-    if (!existing) {
+    const id = Number(params?.id);
+    if (isNaN(id)) {
       return NextResponse.json({ message: 'Navigation item not found' }, { status: 404 });
     }
 
-    if (existing.isFixed) {
-      return NextResponse.json({ message: 'Fixed items (e.g. Home) cannot be deleted.' }, { status: 400 });
-    }
-
-    // 1. Gather filters assigned to THIS navigation item
-    const assignedFilterIds = (existing.assignedFilters || [])
-      .map((af) => (af.filterId?._id || af.filterId)?.toString())
-      .filter(Boolean);
-
-    // 2. Delete the navigation item
-    await NavigationItem.findByIdAndDelete(id);
-
-    // 3. Find and delete custom filters that were assigned to this navigation item and are NO LONGER assigned to any remaining navigation item
-    let deletedFilterCount = 0;
-    if (assignedFilterIds.length > 0) {
-      const remainingNavItems = await NavigationItem.find({}).lean();
-      const stillAssignedSet = new Set();
-
-      remainingNavItems.forEach((nav) => {
-        (nav.assignedFilters || []).forEach((af) => {
-          const fid = (af.filterId?._id || af.filterId)?.toString();
-          if (fid) stillAssignedSet.add(fid);
-        });
-      });
-
-      const orphanFilterIds = assignedFilterIds.filter((fid) => !stillAssignedSet.has(fid));
-
-      if (orphanFilterIds.length > 0) {
-        // Delete orphan filters from Filter collection
-        const delRes = await Filter.deleteMany({ _id: { $in: orphanFilterIds } });
-        deletedFilterCount = delRes.deletedCount || orphanFilterIds.length;
-
-        // Pull deleted filter references from products
-        await Product.updateMany(
-          {},
-          { $pull: { filterValues: { filterId: { $in: orphanFilterIds } } } }
-        );
-      }
-    }
-
-    // 4. Delete corresponding ProductCategory if applicable
-    if (existing.linkType === 'category' && existing.categorySlug) {
-      await ProductCategory.deleteOne({ slug: existing.categorySlug.toLowerCase() });
-    }
+    const item = await prisma.navigationItem.delete({ where: { id } });
 
     return NextResponse.json({
       success: true,
-      message: `Navigation item removed.${deletedFilterCount > 0 ? ` Cleaned up ${deletedFilterCount} assigned custom filter(s).` : ''}`,
-      categorySlug: existing.linkType === 'category' ? existing.categorySlug : null,
+      message: `Navigation item "${item.label}" removed cleanly.`,
     });
   } catch (error) {
     console.error('[API/Admin/Navigation/[id] DELETE Error]:', error);

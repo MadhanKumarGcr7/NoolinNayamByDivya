@@ -300,3 +300,146 @@ input, textarea, select {
 .animate-slide-in-right {
   animation: slide-in-right 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
 }
+
+/* ─── SITE-WIDE BRAND COLOR PALETTE & UTILITIES ───────────────────────────────── */
+:root {
+  --color-shop-primary:    #191919; /* charcoal black: Add to Cart / primary buttons */
+  --color-shop-taupe:      #CAB8A2; /* taupe: secondary buttons, tags, active filters */
+  --color-shop-warm-sand:  #E2D3CB; /* warm sand: badges like "New" / "Made to Order" */
+  --color-copper-start:    #C2A68E; /* copper gradient start */
+  --color-copper-mid:      #D4BDA9; /* copper gradient mid */
+  --color-copper-end:      #E3D2C6; /* copper gradient end */
+  --color-shop-promo-from: #C2A68E; /* copper gradient start */
+  --color-shop-promo-to:   #E3D2C6; /* copper gradient end */
+}
+
+/* Site-wide helper classes for components & section highlights */
+.section-highlight-copper,
+.bg-copper-gradient,
+.bg-mocha-gradient {
+  background: linear-gradient(180deg, #C2A68E 0%, #D4BDA9 50%, #E3D2C6 100%) !important;
+  color: #191919;
+}
+
+.section-highlight-copper-vertical,
+.bg-copper-gradient-vertical,
+.bg-mocha-gradient-vertical {
+  background: linear-gradient(180deg, #C2A68E 0%, #D4BDA9 50%, #E3D2C6 100%) !important;
+  color: #191919;
+}
+
+.bg-copper-soft,
+.bg-mocha-soft {
+  background: linear-gradient(180deg, rgba(194, 166, 142, 0.25) 0%, rgba(227, 210, 198, 0.45) 100%) !important;
+  color: #191919;
+}
+
+.bg-warm-sand {
+  background-color: #E2D3CB !important;
+  color: #191919 !important;
+}
+
+.bg-taupe {
+  background-color: #CAB8A2 !important;
+  color: #191919 !important;
+}
+
+.btn-primary-mocha {
+  background-color: #191919 !important;
+  color: #ffffff !important;
+  border-color: #191919 !important;
+}
+.btn-primary-mocha:hover {
+  background-color: #333333 !important;
+  border-color: #333333 !important;
+}
+
+.btn-secondary-taupe {
+  background-color: #CAB8A2 !important;
+  color: #191919 !important;
+  border-color: #CAB8A2 !important;
+}
+.btn-secondary-taupe:hover {
+  background-color: #beaa92 !important;
+}
+
+.badge-warm-sand {
+  background-color: #E2D3CB !important;
+  color: #191919 !important;
+  border: 1px solid rgba(25, 25, 25, 0.15) !important;
+}
+
+/* Scoped strictly to Shop page container (.shop-page-theme) */
+.shop-page-theme {
+  --shop-primary:    var(--color-shop-primary);
+  --shop-taupe:      var(--color-shop-taupe);
+  --shop-warm-sand:  var(--color-shop-warm-sand);
+  --shop-promo-from: var(--color-shop-promo-from);
+  --shop-promo-to:   var(--color-shop-promo-to);
+}
+
+/* Primary buttons on Shop page (Add to Cart, Search button, etc.) */
+.shop-page-theme .shop-btn-primary,
+.shop-page-theme .shop-add-to-cart-btn:not(:disabled) {
+  background-color: var(--color-shop-primary) !important;
+  color: #ffffff !important;
+  border-color: var(--color-shop-primary) !important;
+}
+
+.shop-page-theme .shop-btn-primary:hover,
+.shop-page-theme .shop-add-to-cart-btn:not(:disabled):hover {
+  background-color: #333333 !important;
+  color: #ffffff !important;
+}
+
+/* Secondary buttons & Tags on Shop page */
+.shop-page-theme .shop-btn-secondary,
+.shop-page-theme .shop-tag {
+  background-color: var(--color-shop-taupe) !important;
+  color: #191919 !important;
+  border-color: var(--color-shop-taupe) !important;
+}
+
+.shop-page-theme .shop-btn-secondary:hover {
+  background-color: #beaa92 !important;
+  color: #191919 !important;
+}
+
+/* Active filters on Shop page */
+.shop-page-theme .shop-active-filter {
+  background-color: var(--color-shop-taupe) !important;
+  color: #191919 !important;
+  border-color: var(--color-shop-taupe) !important;
+  font-weight: 500 !important;
+}
+
+/* Badges on Product Cards on Shop page */
+.shop-page-theme .shop-badge,
+.shop-page-theme .shop-badge-container span {
+  background-color: var(--color-shop-warm-sand) !important;
+  color: #191919 !important;
+  border-color: rgba(25, 25, 25, 0.15) !important;
+}
+
+/* Sale/Promo Banner on Shop page (if any) */
+.shop-page-theme .shop-promo-banner {
+  background: linear-gradient(180deg, #C2A68E 0%, #D4BDA9 50%, #E3D2C6 100%) !important;
+  color: #191919 !important;
+  border: 1px solid rgba(189, 159, 134, 0.35) !important;
+}
+
+/* Shop Collection Header Hero Section gradient */
+.shop-page-theme .shop-header-hero {
+  background: linear-gradient(180deg, #C2A68E 0%, #D4BDA9 50%, #E3D2C6 100%) !important;
+  border: 1px solid rgba(189, 159, 134, 0.35) !important;
+  color: #191919 !important;
+}
+
+/* Filter Panel Section gradient */
+.shop-page-theme .shop-filter-panel {
+  background: linear-gradient(180deg, rgba(189, 159, 134, 0.25), rgba(236, 219, 209, 0.45)) !important;
+  border: 1px solid rgba(189, 159, 134, 0.35) !important;
+  color: #191919 !important;
+}
+
+

@@ -143,7 +143,7 @@ export default function WorkshopsSection({ limit = 3, showHeader = true, classNa
                       <div className="w-full h-full flex items-center justify-center text-body-xs text-charcoal-400">Crochet Workshop</div>
                     )}
                     <div className="absolute top-3 left-3 flex gap-2">
-                      <span className="px-2.5 py-1 text-label-xs uppercase tracking-[0.14em] bg-ivory/90 backdrop-blur-sm text-charcoal border border-border font-medium">
+                      <span className="px-2.5 py-1 text-label-xs uppercase tracking-[0.14em] badge-warm-sand font-medium shadow-xs">
                         {w.skillLevel}
                       </span>
                       {w.isOnline && (

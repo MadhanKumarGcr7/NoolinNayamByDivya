@@ -1,12 +1,10 @@
 /**
- * Admin Gallery Categories Management API — GET, POST & DELETE /api/admin/design-gallery/categories
- * ────────────────────────────────────────────────────────────────────────────
- * Hardened design gallery category management. Protected: owner authentication required.
+ * Admin Gallery Categories Management API (MySQL / Prisma)
+ * GET, POST & DELETE /api/admin/design-gallery/categories
  */
 
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/db';
-import DesignGalleryCategory from '@/models/DesignGalleryCategory';
+import prisma from '@/lib/prisma';
 import {
   requireAuth,
   sanitizeRequestData,
@@ -18,30 +16,38 @@ import {
 export const dynamic = 'force-dynamic';
 
 const DEFAULT_CATEGORIES = [
-  { name: 'Necklines', order: 1 },
-  { name: 'Sleeves', order: 2 },
-  { name: 'Patterns & Motifs', order: 3 },
-  { name: 'Color Palettes', order: 4 },
-  { name: 'Finished Garments', order: 5 },
-  { name: 'Yarn Textures', order: 6 },
+  { name: 'Necklines', display_order: 1 },
+  { name: 'Sleeves', display_order: 2 },
+  { name: 'Patterns & Motifs', display_order: 3 },
+  { name: 'Color Palettes', display_order: 4 },
+  { name: 'Finished Garments', display_order: 5 },
+  { name: 'Yarn Textures', display_order: 6 },
 ];
 
 export async function GET(request) {
   try {
-    await connectDB();
-
-    let categories = await DesignGalleryCategory.find().sort({ order: 1, createdAt: 1 });
+    let categories = await prisma.designGalleryCategory.findMany({
+      orderBy: { display_order: 'asc' },
+    });
 
     if (categories.length === 0) {
-      try {
-        await DesignGalleryCategory.insertMany(DEFAULT_CATEGORIES);
-        categories = await DesignGalleryCategory.find().sort({ order: 1, createdAt: 1 });
-      } catch {
-        categories = await DesignGalleryCategory.find().sort({ order: 1, createdAt: 1 });
+      for (const cat of DEFAULT_CATEGORIES) {
+        await prisma.designGalleryCategory.create({ data: cat });
       }
+      categories = await prisma.designGalleryCategory.findMany({
+        orderBy: { display_order: 'asc' },
+      });
     }
 
-    const response = NextResponse.json({ success: true, categories });
+    const response = NextResponse.json({
+      success: true,
+      categories: categories.map(c => ({
+        _id: String(c.id),
+        id: String(c.id),
+        name: c.name,
+        order: c.display_order,
+      })),
+    });
     return applySecurityHeaders(response, request);
   } catch (error) {
     return handleApiError(error, request);
@@ -56,7 +62,6 @@ export async function POST(request) {
       return applySecurityHeaders(resp, request);
     }
 
-    await connectDB();
     const { body } = await sanitizeRequestData(request);
     const { name } = body;
 
@@ -66,16 +71,18 @@ export async function POST(request) {
     }
 
     const trimmedName = name.trim();
-    const existing = await DesignGalleryCategory.findOne({ name: trimmedName });
+    const existing = await prisma.designGalleryCategory.findFirst({ where: { name: trimmedName } });
     if (existing) {
       const resp = NextResponse.json({ error: 'Category already exists.' }, { status: 409 });
       return applySecurityHeaders(resp, request);
     }
 
-    const count = await DesignGalleryCategory.countDocuments();
-    const newCategory = await DesignGalleryCategory.create({
-      name: trimmedName,
-      order: count + 1,
+    const count = await prisma.designGalleryCategory.count();
+    const newCategory = await prisma.designGalleryCategory.create({
+      data: {
+        name: trimmedName,
+        display_order: count + 1,
+      },
     });
 
     logSecurityEvent({
@@ -87,7 +94,14 @@ export async function POST(request) {
       details: { categoryName: trimmedName },
     });
 
-    const response = NextResponse.json({ success: true, category: newCategory });
+    const response = NextResponse.json({
+      success: true,
+      category: {
+        _id: String(newCategory.id),
+        id: String(newCategory.id),
+        name: newCategory.name,
+      },
+    });
     return applySecurityHeaders(response, request);
   } catch (error) {
     return handleApiError(error, request);
@@ -102,16 +116,15 @@ export async function DELETE(request) {
       return applySecurityHeaders(resp, request);
     }
 
-    await connectDB();
     const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
+    const id = Number(searchParams.get('id'));
 
-    if (!id) {
-      const resp = NextResponse.json({ error: 'Category ID is required.' }, { status: 400 });
+    if (!id || isNaN(id)) {
+      const resp = NextResponse.json({ error: 'Valid Category ID is required.' }, { status: 400 });
       return applySecurityHeaders(resp, request);
     }
 
-    await DesignGalleryCategory.findByIdAndDelete(id);
+    await prisma.designGalleryCategory.delete({ where: { id } });
 
     logSecurityEvent({
       event: 'DESIGN_GALLERY_CATEGORY_DELETED',
@@ -119,7 +132,7 @@ export async function DELETE(request) {
       role: 'owner',
       path: '/api/admin/design-gallery/categories',
       outcome: 'SUCCESS',
-      details: { id },
+      details: { id: String(id) },
     });
 
     const response = NextResponse.json({ success: true, message: 'Category removed.' });

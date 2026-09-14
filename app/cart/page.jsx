@@ -10,16 +10,21 @@ import { brandConfig } from '@/lib/config';
 
 import CustomInquiriesCartSection from '@/components/cart/CustomInquiriesCartSection';
 
+import CouponInput from '@/components/cart/CouponInput';
+
 const { currencySymbol, freeShippingThreshold } = brandConfig.shipping;
 
 export default function CartPage() {
-  const { items, subtotal, updateQuantity, removeItem } = useCartStore();
+  const { items, subtotal, updateQuantity, removeItem, appliedCoupon } = useCartStore();
   const { toggleItem } = useWishlistStore();
 
   const handleMoveToWishlist = (item) => {
     toggleItem({ id: item.productId, name: item.name, slug: item.slug, images: [item.image], price: item.price });
     removeItem(item.cartId);
   };
+
+  const discountAmount = appliedCoupon?.discountAmount || 0;
+  const finalTotal = Math.max(0, subtotal - discountAmount);
 
   return (
     <div className="pt-28 pb-6 bg-ivory">
@@ -159,15 +164,25 @@ export default function CartPage() {
                   <span>Subtotal</span>
                   <span className="font-medium text-charcoal">{currencySymbol}{subtotal.toLocaleString('en-IN')}</span>
                 </div>
+                {appliedCoupon && (
+                  <div className="flex justify-between text-sage-dark font-medium">
+                    <span>Discount ({appliedCoupon.code})</span>
+                    <span>−{currencySymbol}{discountAmount.toLocaleString('en-IN')}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-charcoal-600">
                   <span>Estimated Shipping</span>
                   <span>{subtotal >= freeShippingThreshold ? 'FREE' : 'Calculated at checkout'}</span>
                 </div>
               </div>
 
+              <div className="mb-6 pt-2 border-t border-border/60">
+                <CouponInput />
+              </div>
+
               <div className="border-t border-border pt-4 mb-8 flex justify-between items-baseline">
                 <span className="text-label-lg uppercase tracking-[0.16em] text-charcoal">Total</span>
-                <span className="font-serif text-2xl font-light text-charcoal">{currencySymbol}{subtotal.toLocaleString('en-IN')}</span>
+                <span className="font-serif text-2xl font-light text-charcoal">{currencySymbol}{finalTotal.toLocaleString('en-IN')}</span>
               </div>
 
               <Button href="/checkout" variant="primary" size="xl" className="w-full" arrow>

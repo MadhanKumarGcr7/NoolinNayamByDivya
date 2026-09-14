@@ -1,6 +1,10 @@
+/**
+ * Public Navigation API Route (MySQL / Prisma)
+ * GET /api/navigation
+ */
+
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/db';
-import NavigationItem from '@/models/NavigationItem';
+import prisma from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,12 +21,11 @@ const FALLBACK_NAV = [
 
 export async function GET() {
   try {
-    const conn = await connectDB();
-    if (!conn) {
-      return NextResponse.json({ success: true, items: FALLBACK_NAV });
-    }
-
-    const items = await NavigationItem.find({ visible: true }).sort({ order: 1 }).lean();
+    const items = await prisma.navigationItem.findMany({
+      where: { visible: true },
+      include: { category: true },
+      orderBy: { display_order: 'asc' },
+    });
 
     if (!items || items.length === 0) {
       return NextResponse.json({ success: true, items: FALLBACK_NAV });
@@ -30,24 +33,25 @@ export async function GET() {
 
     const formattedItems = items.map((item) => {
       let href = '/';
-      if (item.linkType === 'category') {
-        href = `/shop?category=${encodeURIComponent(item.categorySlug || '')}`;
-      } else if (item.linkType === 'page') {
-        href = item.pageSlug || '/';
-      } else if (item.linkType === 'external') {
-        href = item.externalUrl || '#';
+      let categorySlug = item.category?.slug || '';
+      if (item.link_type === 'category') {
+        href = `/shop?category=${encodeURIComponent(categorySlug)}`;
+      } else if (item.link_type === 'page') {
+        href = item.page_slug || '/';
+      } else if (item.link_type === 'external') {
+        href = item.external_url || '#';
       }
 
       return {
-        _id: item._id.toString(),
+        _id: String(item.id),
+        id: String(item.id),
         label: item.label,
         href,
-        linkType: item.linkType,
-        categorySlug: item.categorySlug,
-        pageSlug: item.pageSlug,
-        externalUrl: item.externalUrl,
-        isFixed: item.isFixed || false,
-        order: item.order,
+        linkType: item.link_type,
+        categorySlug,
+        pageSlug: item.page_slug,
+        externalUrl: item.external_url,
+        order: item.display_order,
       };
     });
 

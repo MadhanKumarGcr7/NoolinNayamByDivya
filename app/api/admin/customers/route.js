@@ -1,67 +1,58 @@
 /**
- * Admin Customers API
+ * Admin Customers API (MySQL / Prisma)
  * GET /api/admin/customers
- * ────────────────────────────────────────────────────────────────────────────
- * Paginated customer list with order counts. Protected: owner JWT required.
  */
 
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/db';
-import User from '@/models/User';
-import Order from '@/models/Order';
-import { getAuthFromRequest } from '@/lib/auth';
+import prisma from '@/lib/prisma';
+import { requireAuth, applySecurityHeaders, handleApiError } from '@/lib/security';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
-  const auth = getAuthFromRequest(request, 'owner');
-  if (!auth) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-  }
-
   try {
-    await connectDB();
-
+    const auth = await requireAuth(request, 'owner');
+    if (!auth.authenticated) {
+      const resp = NextResponse.json({ message: auth.error || 'Unauthorized' }, { status: auth.status || 401 });
+      return applySecurityHeaders(resp, request);
+    }
     const { searchParams } = new URL(request.url);
     const page   = parseInt(searchParams.get('page') || '1', 10);
     const limit  = parseInt(searchParams.get('limit') || '20', 10);
     const search = searchParams.get('search') || '';
 
-    const query = { role: 'customer' };
+    const where = { role: 'customer' };
     if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
+      where.OR = [
+        { name: { contains: search } },
+        { email: { contains: search } },
       ];
     }
 
-    const [customers, total] = await Promise.all([
-      User.find(query)
-        .select('-passwordHash -resetPasswordToken -resetPasswordExpires')
-        .sort({ createdAt: -1 })
-        .skip((page - 1) * limit)
-        .limit(limit)
-        .lean(),
-      User.countDocuments(query),
+    const [rawCustomers, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        include: { orders: true },
+        orderBy: { created_at: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.user.count({ where }),
     ]);
 
-    // Get order counts for each customer
-    const customerIds = customers.map((c) => c._id);
-    const orderCounts = await Order.aggregate([
-      { $match: { userId: { $in: customerIds } } },
-      { $group: { _id: '$userId', count: { $sum: 1 } } },
-    ]);
-
-    const orderCountMap = {};
-    orderCounts.forEach((o) => { orderCountMap[o._id.toString()] = o.count; });
-
-    const enrichedCustomers = customers.map((c) => ({
-      ...c,
-      orderCount: orderCountMap[c._id.toString()] || 0,
+    const customers = rawCustomers.map((c) => ({
+      _id: String(c.id),
+      id: String(c.id),
+      name: c.name,
+      email: c.email,
+      phone: c.phone || '',
+      role: c.role,
+      createdAt: c.created_at,
+      orderCount: c.orders.length,
     }));
 
-    return NextResponse.json({
-      customers: enrichedCustomers,
+    const response = NextResponse.json({
+      customers,
       pagination: {
         page,
         limit,
@@ -69,9 +60,9 @@ export async function GET(request) {
         totalPages: Math.ceil(total / limit),
       },
     });
+    return applySecurityHeaders(response, request);
 
   } catch (error) {
-    console.error('[API/Admin/Customers Error]:', error);
-    return NextResponse.json({ message: 'Server error' }, { status: 500 });
+    return handleApiError(error, request);
   }
 }

@@ -1,14 +1,10 @@
 /**
- * Admin WhatsApp Community Members API Route
- * GET /api/admin/community
- * PUT /api/admin/community
- * ────────────────────────────────────────────────────────────────────────────
- * Protected: Owner JWT required.
+ * Admin WhatsApp Community Members API Route (MySQL / Prisma)
+ * GET & PUT /api/admin/community
  */
 
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/db';
-import CommunityMember from '@/models/CommunityMember';
+import prisma from '@/lib/prisma';
 import { getAuthFromRequest } from '@/lib/auth';
 
 export async function GET(request) {
@@ -18,26 +14,37 @@ export async function GET(request) {
   }
 
   try {
-    await connectDB();
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search');
     const status = searchParams.get('status');
 
-    const query = {};
+    const where = {};
     if (status && status !== 'all') {
-      query.status = status;
+      where.status = status;
     }
     if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { phone: { $regex: search, $options: 'i' } },
+      where.OR = [
+        { name: { contains: search } },
+        { email: { contains: search } },
+        { phone: { contains: search } },
       ];
     }
 
-    const members = await CommunityMember.find(query)
-      .sort({ createdAt: -1 })
-      .lean();
+    const rawMembers = await prisma.communityMember.findMany({
+      where,
+      orderBy: { created_at: 'desc' },
+    });
+
+    const members = rawMembers.map(m => ({
+      _id: String(m.id),
+      id: String(m.id),
+      name: m.name,
+      email: m.email,
+      phone: m.phone || '',
+      source: m.source,
+      status: m.status,
+      createdAt: m.created_at,
+    }));
 
     return NextResponse.json({ members });
   } catch (error) {
@@ -53,27 +60,26 @@ export async function PUT(request) {
   }
 
   try {
-    await connectDB();
     const body = await request.json();
     const { id, status } = body;
 
-    if (!id || !status) {
-      return NextResponse.json({ message: 'Member ID and status required' }, { status: 400 });
+    const memberId = Number(id);
+    if (!id || isNaN(memberId) || !status) {
+      return NextResponse.json({ message: 'Valid Member ID and status required' }, { status: 400 });
     }
 
-    const updated = await CommunityMember.findByIdAndUpdate(
-      id,
-      { $set: { status } },
-      { new: true }
-    );
-
-    if (!updated) {
-      return NextResponse.json({ message: 'Member record not found' }, { status: 404 });
-    }
+    const updated = await prisma.communityMember.update({
+      where: { id: memberId },
+      data: { status },
+    });
 
     return NextResponse.json({
       success: true,
-      member: updated,
+      member: {
+        _id: String(updated.id),
+        id: String(updated.id),
+        status: updated.status,
+      },
     });
   } catch (error) {
     console.error('[API/Admin/Community PUT Error]:', error);

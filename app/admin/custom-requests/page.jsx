@@ -225,7 +225,40 @@ export default function AdminCustomRequestsPage() {
 
                 {/* Expanded detail */}
                 {expandedCustom === req._id && (
-                  <div className="border-t border-border/60 p-4 bg-ivory/50 space-y-4 animate-fade-in">
+                  <div className="pt-4 border-t border-border/60 space-y-4">
+                    {/* Base Product Information */}
+                    {(req.baseProductNameSnapshot || req.baseProduct) && (
+                      <div className="bg-cream border border-border/80 p-3.5 rounded-xs flex items-center gap-3">
+                        {req.baseProduct?.image && (
+                          <img
+                            src={req.baseProduct.image}
+                            alt={req.baseProductNameSnapshot}
+                            className="w-12 h-14 object-cover border border-border/60 flex-shrink-0"
+                          />
+                        )}
+                        <div>
+                          <span className="text-[10px] uppercase font-sans font-medium tracking-wider text-warmBrown block">
+                            ✨ Base Shop Product Selected
+                          </span>
+                          <p className="text-body-sm font-sans font-medium text-charcoal">
+                            {req.baseProductNameSnapshot || req.baseProduct?.name}
+                          </p>
+                          {req.baseProduct?.slug ? (
+                            <a
+                              href={`/shop/${req.baseProduct.slug}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-body-xs text-warmBrown hover:underline inline-block mt-0.5"
+                            >
+                              View Catalog Item →
+                            </a>
+                          ) : (
+                            <p className="text-[10px] text-charcoal-400 italic mt-0.5">Historical Snapshot (Item edited or unlisted from catalog)</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-body-xs font-sans">
                       <div><span className="text-charcoal-400 block mb-0.5">Phone</span><span className="text-charcoal font-light">{req.phone}</span></div>
                       <div><span className="text-charcoal-400 block mb-0.5">Product Type</span><span className="text-charcoal font-light">{req.productType}</span></div>

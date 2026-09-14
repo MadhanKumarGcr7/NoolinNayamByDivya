@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import connectDB from '@/lib/db';
-import Product from '@/models/Product';
+import prisma from '@/lib/prisma';
 import ProductGallery from '@/components/product/ProductGallery';
 import ProductInfo from '@/components/product/ProductInfo';
 import RelatedProducts from '@/components/product/RelatedProducts';
@@ -13,8 +12,10 @@ export const dynamic = 'force-dynamic';
 export async function generateMetadata({ params }) {
   const { slug } = params;
   try {
-    await connectDB();
-    const product = await Product.findOne({ slug, status: 'active' }).lean();
+    const product = await prisma.product.findFirst({
+      where: { slug, status: 'active' },
+      include: { images: { orderBy: { display_order: 'asc' } } },
+    });
     if (!product) return {};
 
     return {
@@ -23,7 +24,7 @@ export async function generateMetadata({ params }) {
       openGraph: {
         title: product.name,
         description: product.description,
-        images: [{ url: product.images?.[0] || brandConfig.seo.ogImage }],
+        images: [{ url: product.images?.[0]?.url || brandConfig.seo.ogImage }],
       },
     };
   } catch {
@@ -36,33 +37,82 @@ export default async function ProductDetailPage({ params }) {
   let product = null;
 
   try {
-    await connectDB();
-    const dbProduct = await Product.findOne({ slug, status: 'active' }).lean();
-    if (dbProduct) {
+    const p = await prisma.product.findFirst({
+      where: { slug, status: 'active' },
+      include: {
+        category: true,
+        images: { orderBy: { display_order: 'asc' } },
+        variants: true,
+      },
+    });
+
+    if (p) {
+      const images = p.images.map(img => img.url);
+      const sizes = Array.from(new Set(p.variants.map(v => v.size).filter(Boolean)));
+      const colors = Array.from(new Set(p.variants.map(v => v.color).filter(Boolean))).map(name => ({ name }));
+      const stock = p.variants.reduce((acc, curr) => acc + curr.stock, 0);
+
       product = {
-        ...dbProduct,
-        id: dbProduct._id.toString(),
+        _id: String(p.id),
+        id: String(p.id),
+        name: p.name,
+        slug: p.slug,
+        description: p.description,
+        price: Number(p.price),
+        category: p.category.slug,
+        categoryName: p.category.name,
+        material: p.material,
+        care: p.care,
+        customizable: p.customizable,
+        featured: p.featured,
+        newArrival: p.new_arrival,
+        status: p.status,
+        createdAt: p.created_at,
+        images,
+        sizes,
+        colors,
+        stock,
+        variants: p.variants.map(v => ({
+          id: String(v.id),
+          size: v.size,
+          color: v.color,
+          stock: v.stock,
+          outOfStock: v.out_of_stock,
+        })),
       };
     }
   } catch (err) {
     console.error('Error loading product detail:', err);
   }
 
-  // If product is missing or hidden/draft/deleted -> return 404
   if (!product) {
     notFound();
   }
 
-  // Related products from MongoDB
   let allProducts = [];
   try {
-    const dbAll = await Product.find({ status: 'active', slug: { $ne: slug } }).limit(4).lean();
-    allProducts = dbAll.map((p) => ({ ...p, id: p._id.toString() }));
+    const dbAll = await prisma.product.findMany({
+      where: { status: 'active', NOT: { slug } },
+      take: 4,
+      include: {
+        category: true,
+        images: { orderBy: { display_order: 'asc' } },
+        variants: true,
+      },
+    });
+
+    allProducts = dbAll.map((p) => ({
+      _id: String(p.id),
+      id: String(p.id),
+      name: p.name,
+      slug: p.slug,
+      price: Number(p.price),
+      images: p.images.map(img => img.url),
+    }));
   } catch {
     allProducts = [];
   }
 
-  // Schema.org Product Structured Data for SEO
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Product',
@@ -86,7 +136,6 @@ export default async function ProductDetailPage({ params }) {
 
       <div className="pt-28 pb-6 bg-ivory">
         <div className="site-container">
-          {/* Breadcrumb Navigation */}
           <nav aria-label="Breadcrumb" className="mb-8 reveal">
             <ol className="flex items-center gap-2 text-body-xs font-sans text-charcoal-400">
               <li>
@@ -103,23 +152,18 @@ export default async function ProductDetailPage({ params }) {
             </ol>
           </nav>
 
-          {/* Product Hero — Gallery + Info */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-start mb-24">
-            {/* Left: Gallery (7 cols on lg) */}
             <div className="lg:col-span-7">
               <ProductGallery images={product.images} productName={product.name} />
             </div>
 
-            {/* Right: Info & Purchase Form (5 cols on lg) */}
             <div className="lg:col-span-5">
               <ProductInfo product={product} />
             </div>
           </div>
 
-          {/* Customer Reviews & Rating Summary Section */}
           <CustomerReviewsSection productSlug={product.slug} productName={product.name} />
 
-          {/* Related Products Carousel */}
           {allProducts.length > 0 && (
             <div className="mt-24 pt-16 border-t border-border">
               <RelatedProducts currentProductId={product.id} products={allProducts} />

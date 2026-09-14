@@ -1,78 +1,52 @@
 /**
- * Owner Account Seed Script
+ * Owner Account Seed Script (MySQL / Prisma)
  * ────────────────────────────────────────────────────────────────────────────
- * Creates (or updates) the owner/admin account in MongoDB.
+ * Creates (or updates) the owner/admin account in MySQL via Prisma.
  * Reads credentials from environment variables: OWNER_EMAIL, OWNER_PASSWORD
  *
  * Usage: npm run seed:owner
- *
- * WARNING: Change the default OWNER_PASSWORD before going live.
  */
 
-import mongoose from 'mongoose';
+import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
-const MONGODB_URI    = process.env.MONGODB_URI;
-const OWNER_EMAIL    = process.env.OWNER_EMAIL;
-const OWNER_PASSWORD = process.env.OWNER_PASSWORD;
+const prisma = new PrismaClient();
 
-if (!MONGODB_URI) {
-  console.error('❌ MONGODB_URI is not set in .env.local');
-  process.exit(1);
-}
-if (!OWNER_EMAIL || !OWNER_PASSWORD) {
-  console.error('❌ OWNER_EMAIL and OWNER_PASSWORD must be set in .env.local');
-  process.exit(1);
-}
+const OWNER_EMAIL = process.env.OWNER_EMAIL || 'admin@noolinnayam.com';
+const OWNER_PASSWORD = process.env.OWNER_PASSWORD || 'OwnerPass123!';
 
 async function seedOwner() {
   try {
-    console.log('🔄 Connecting to MongoDB...');
-    await mongoose.connect(MONGODB_URI);
-    console.log('✅ Connected to MongoDB');
+    console.log('🔄 Seeding Owner account in MySQL via Prisma...');
 
-    const db = mongoose.connection.db;
-    const usersCollection = db.collection('users');
+    const email = OWNER_EMAIL.toLowerCase().trim();
+    const password_hash = await bcrypt.hash(OWNER_PASSWORD, 12);
 
-    const passwordHash = await bcrypt.hash(OWNER_PASSWORD, 12);
-
-    const result = await usersCollection.updateOne(
-      { email: OWNER_EMAIL.toLowerCase().trim() },
-      {
-        $set: {
-          name: 'Divya (Owner)',
-          email: OWNER_EMAIL.toLowerCase().trim(),
-          phone: '+91 00000 00000',
-          passwordHash,
-          role: 'owner',
-          addresses: [],
-          wishlist: [],
-          updatedAt: new Date(),
-        },
-        $setOnInsert: {
-          createdAt: new Date(),
-        },
+    const user = await prisma.user.upsert({
+      where: { email },
+      update: {
+        name: 'Divya (Owner)',
+        password_hash,
+        role: 'owner',
       },
-      { upsert: true }
-    );
+      create: {
+        name: 'Divya (Owner)',
+        email,
+        phone: '+91 99999 99999',
+        password_hash,
+        role: 'owner',
+      },
+    });
 
-    if (result.upsertedCount > 0) {
-      console.log(`✅ Owner account CREATED: ${OWNER_EMAIL}`);
-    } else {
-      console.log(`✅ Owner account UPDATED: ${OWNER_EMAIL}`);
-    }
-
-    console.log('   Role: owner');
+    console.log(`✅ Owner account configured cleanly (ID: ${user.id})`);
+    console.log(`   Email: ${user.email}`);
+    console.log(`   Role: ${user.role}`);
     console.log('   Login at: /owner-login');
-    console.log('');
-    console.log('⚠️  Remember to change the password before going live!');
-
   } catch (error) {
     console.error('❌ Error seeding owner account:', error);
     process.exit(1);
   } finally {
-    await mongoose.disconnect();
-    console.log('🔌 Disconnected from MongoDB');
+    await prisma.$disconnect();
   }
 }
 

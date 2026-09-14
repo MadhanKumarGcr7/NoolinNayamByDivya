@@ -1,17 +1,12 @@
 /**
- * Admin Single Order API — GET & PATCH /api/admin/orders/[id]
- * ────────────────────────────────────────────────────────────────────────────
- * Hardened single order retrieval and status update handler.
- * Protected: owner role authentication required.
+ * Admin Single Order API — GET & PATCH /api/admin/orders/[id] (MySQL / Prisma)
  */
 
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/db';
-import Order from '@/models/Order';
+import prisma from '@/lib/prisma';
 import {
   requireAuth,
   sanitizeRequestData,
-  validateUpdateOrderStatus,
   applySecurityHeaders,
   handleApiError,
   logSecurityEvent,
@@ -27,14 +22,63 @@ export async function GET(request, { params }) {
       return applySecurityHeaders(resp, request);
     }
 
-    await connectDB();
-    const id = params?.id;
-    const order = await Order.findById(id).lean();
-
-    if (!order) {
+    const id = Number(params?.id);
+    if (isNaN(id)) {
       const resp = NextResponse.json({ error: 'Order not found' }, { status: 404 });
       return applySecurityHeaders(resp, request);
     }
+
+    const o = await prisma.order.findUnique({
+      where: { id },
+      include: { items: true },
+    });
+
+    if (!o) {
+      const resp = NextResponse.json({ error: 'Order not found' }, { status: 404 });
+      return applySecurityHeaders(resp, request);
+    }
+
+    const order = {
+      _id: String(o.id),
+      id: String(o.id),
+      orderNumber: `ORD-${o.id}`,
+      subtotal: Number(o.subtotal),
+      shipping: Number(o.shipping),
+      total: Number(o.total),
+      status: o.status,
+      paymentStatus: o.payment_status,
+      razorpayOrderId: o.razorpay_order_id,
+      razorpayPaymentId: o.razorpay_payment_id,
+      paymentVerifiedAt: o.payment_verified_at,
+      couponCode: o.coupon_code,
+      discountAmount: Number(o.discount_amount || 0),
+      returnPolicyAgreed: o.return_policy_agreed,
+      returnRequested: o.return_requested,
+      createdAt: o.created_at,
+      contactInfo: {
+        name: o.user?.name || o.contact_email?.split('@')[0] || 'Customer',
+        email: o.contact_email,
+        phone: o.contact_phone,
+      },
+      shippingAddress: {
+        street: o.shipping_address_line1,
+        line1: o.shipping_address_line1,
+        line2: o.shipping_address_line2,
+        city: o.shipping_city,
+        state: o.shipping_state,
+        pincode: o.shipping_pincode,
+        country: o.shipping_country,
+      },
+      items: o.items.map(i => ({
+        id: String(i.id),
+        product: i.product_id ? String(i.product_id) : null,
+        name: i.product_name_snapshot,
+        size: i.size,
+        color: i.color,
+        quantity: i.quantity,
+        price: Number(i.price_snapshot),
+      })),
+    };
 
     const response = NextResponse.json({ order });
     return applySecurityHeaders(response, request);
@@ -51,49 +95,23 @@ export async function PATCH(request, { params }) {
       return applySecurityHeaders(resp, request);
     }
 
-    await connectDB();
-    const id = params?.id;
-    const { body } = await sanitizeRequestData(request);
-
-    const allowedUpdates = {};
-
-    if (body.status) {
-      const statusLower = body.status.toLowerCase();
-      const validation = validateUpdateOrderStatus({ status: statusLower, trackingNumber: body.trackingNumber });
-      if (!validation.valid) {
-        const resp = NextResponse.json({ error: validation.errors.join(' ') }, { status: 400 });
-        return applySecurityHeaders(resp, request);
-      }
-      allowedUpdates.status = body.status;
-    }
-
-    if (body.paymentStatus) {
-      const validPayment = ['pending', 'paid', 'failed'];
-      if (!validPayment.includes(body.paymentStatus)) {
-        const resp = NextResponse.json({ error: 'Invalid payment status' }, { status: 400 });
-        return applySecurityHeaders(resp, request);
-      }
-      allowedUpdates.paymentStatus = body.paymentStatus;
-    }
-
-    if (body.trackingNumber !== undefined) {
-      allowedUpdates.trackingNumber = String(body.trackingNumber).trim();
-    }
-
-    if (body.trackingUrl !== undefined) {
-      allowedUpdates.trackingUrl = String(body.trackingUrl).trim();
-    }
-
-    const updatedOrder = await Order.findByIdAndUpdate(
-      id,
-      { $set: allowedUpdates },
-      { new: true, runValidators: true }
-    );
-
-    if (!updatedOrder) {
+    const id = Number(params?.id);
+    if (isNaN(id)) {
       const resp = NextResponse.json({ error: 'Order not found' }, { status: 404 });
       return applySecurityHeaders(resp, request);
     }
+
+    const { body } = await sanitizeRequestData(request);
+    const data = {};
+
+    if (body.status) data.status = body.status;
+    if (body.paymentStatus) data.payment_status = body.paymentStatus;
+
+    const updatedOrder = await prisma.order.update({
+      where: { id },
+      data,
+      include: { items: true },
+    });
 
     logSecurityEvent({
       event: 'ORDER_STATUS_UPDATED',
@@ -101,12 +119,17 @@ export async function PATCH(request, { params }) {
       role: 'owner',
       path: `/api/admin/orders/${id}`,
       outcome: 'SUCCESS',
-      details: allowedUpdates,
+      details: data,
     });
 
     const response = NextResponse.json({
       success: true,
-      order: updatedOrder,
+      order: {
+        _id: String(updatedOrder.id),
+        id: String(updatedOrder.id),
+        status: updatedOrder.status,
+        paymentStatus: updatedOrder.payment_status,
+      },
     });
 
     return applySecurityHeaders(response, request);

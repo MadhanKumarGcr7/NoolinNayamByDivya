@@ -1,13 +1,10 @@
 /**
- * Admin Single Product Inventory API
+ * Admin Single Product Inventory API (MySQL / Prisma)
  * PATCH /api/admin/inventory/[id]
- * ────────────────────────────────────────────────────────────────────────────
- * Updates stock for a product (aggregate or variant-level). Protected: owner JWT.
  */
 
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/db';
-import Product from '@/models/Product';
+import prisma from '@/lib/prisma';
 import { getAuthFromRequest } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -19,42 +16,46 @@ export async function PATCH(request, { params }) {
   }
 
   try {
-    await connectDB();
-    const id = params?.id;
-    const body = await request.json();
-
-    const update = {};
-
-    // Update aggregate stock
-    if (body.stock !== undefined) {
-      update.stock = Math.max(0, parseInt(body.stock, 10) || 0);
-    }
-
-    // Update variant-level stock
-    if (body.variants && Array.isArray(body.variants)) {
-      update.variants = body.variants.map((v) => ({
-        size:  v.size || null,
-        color: v.color || null,
-        stock: Math.max(0, parseInt(v.stock, 10) || 0),
-      }));
-    }
-
-    // Update low stock threshold
-    if (body.lowStockThreshold !== undefined) {
-      update.lowStockThreshold = Math.max(0, parseInt(body.lowStockThreshold, 10) || 5);
-    }
-
-    const product = await Product.findByIdAndUpdate(
-      id,
-      { $set: update },
-      { new: true }
-    ).lean();
-
-    if (!product) {
+    const id = Number(params?.id);
+    if (isNaN(id)) {
       return NextResponse.json({ message: 'Product not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, product });
+    const body = await request.json();
+
+    if (Array.isArray(body.variants)) {
+      await prisma.productVariant.deleteMany({ where: { product_id: id } });
+      for (const v of body.variants) {
+        const stock = Math.max(0, parseInt(v.stock, 10) || 0);
+        await prisma.productVariant.create({
+          data: {
+            product_id: id,
+            size: v.size || null,
+            color: v.color || null,
+            stock,
+            out_of_stock: stock === 0,
+          },
+        });
+      }
+    }
+
+    const updated = await prisma.product.findUnique({
+      where: { id },
+      include: { variants: true },
+    });
+
+    if (!updated) {
+      return NextResponse.json({ message: 'Product not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      product: {
+        _id: String(updated.id),
+        id: String(updated.id),
+        name: updated.name,
+      },
+    });
 
   } catch (error) {
     console.error('[API/Admin/Inventory/[id] PATCH Error]:', error);

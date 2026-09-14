@@ -153,7 +153,7 @@ export default function WorkshopDetailPage({ params }) {
           </div>
 
           {/* Right: Registration Card */}
-          <div className="lg:col-span-5 sticky top-32 bg-cream border border-border p-6 sm:p-8 shadow-warm-xl space-y-6">
+          <div className="lg:col-span-5 sticky top-32 section-highlight-copper-vertical border border-border/60 p-6 sm:p-8 shadow-warm-xl space-y-6 rounded-xl">
             <div>
               <p className="text-label-xs uppercase tracking-[0.18em] text-charcoal-400 mb-1">Session Details</p>
               <div className="space-y-2 text-body-sm text-charcoal font-medium">

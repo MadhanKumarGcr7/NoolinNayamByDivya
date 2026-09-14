@@ -1,21 +1,13 @@
 /**
- * Public Workshop Registration API Route
+ * Public Workshop Registration API Route (MySQL / Prisma)
  * POST /api/workshops/[slug]/register
- * ────────────────────────────────────────────────────────────────────────────
- * Validates capacity, creates WorkshopRegistration document (or flags as waitlisted if full),
- * increments seatsFilled, and auto-flips status to 'full' when capacity is reached.
- * Accepts either Workshop _id or slug as parameter.
  */
 
 import { NextResponse } from 'next/server';
-import mongoose from 'mongoose';
-import connectDB from '@/lib/db';
-import Workshop from '@/models/Workshop';
-import WorkshopRegistration from '@/models/WorkshopRegistration';
+import prisma from '@/lib/prisma';
 
 export async function POST(request, { params }) {
   try {
-    await connectDB();
     const identifier = params?.slug;
     const body = await request.json();
 
@@ -28,12 +20,14 @@ export async function POST(request, { params }) {
       );
     }
 
-    const isObjectId = mongoose.Types.ObjectId.isValid(identifier);
-    const workshop = await Workshop.findOne({
-      $or: [
-        ...(isObjectId ? [{ _id: identifier }] : []),
-        { slug: identifier },
-      ],
+    const numId = Number(identifier);
+    const workshop = await prisma.workshop.findFirst({
+      where: {
+        OR: [
+          ...(isNaN(numId) ? [] : [{ id: numId }]),
+          { slug: identifier },
+        ],
+      },
     });
 
     if (!workshop || ['draft', 'cancelled'].includes(workshop.status)) {
@@ -41,36 +35,37 @@ export async function POST(request, { params }) {
     }
 
     const requestedSeats = Math.max(1, parseInt(seatsBooked, 10) || 1);
-    const availableSeats = workshop.seatsTotal - workshop.seatsFilled;
+    const availableSeats = workshop.seats_total - workshop.seats_filled;
 
-    let registrationStatus = 'confirmed';
+    let registrationStatus = 'Confirmed';
     let isWaitlist = false;
 
-    // Check capacity: if requested seats exceed available, flag as waitlist
     if (availableSeats <= 0 || requestedSeats > availableSeats || workshop.status === 'full') {
-      registrationStatus = 'waitlisted';
+      registrationStatus = 'Waitlisted';
       isWaitlist = true;
     }
 
-    const registration = await WorkshopRegistration.create({
-      workshopId: workshop._id,
-      name: name.trim(),
-      email: email.trim().toLowerCase(),
-      phone: phone.trim(),
-      seatsBooked: requestedSeats,
-      notes: notes || '',
-      paymentStatus: workshop.isFree ? 'waived' : 'pending',
-      status: registrationStatus,
+    const registration = await prisma.workshopRegistration.create({
+      data: {
+        workshop_id: workshop.id,
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        phone: phone.trim(),
+        seats_booked: requestedSeats,
+        notes: notes || null,
+        payment_status: workshop.is_free ? 'Paid' : 'Pending',
+        status: registrationStatus,
+      },
     });
 
-    // If confirmed, update seatsFilled and check if full
-    if (registrationStatus === 'confirmed') {
-      const newFilled = workshop.seatsFilled + requestedSeats;
-      const shouldBeFull = newFilled >= workshop.seatsTotal;
-      
-      await Workshop.findByIdAndUpdate(workshop._id, {
-        $set: {
-          seatsFilled: newFilled,
+    if (registrationStatus === 'Confirmed') {
+      const newFilled = workshop.seats_filled + requestedSeats;
+      const shouldBeFull = newFilled >= workshop.seats_total;
+
+      await prisma.workshop.update({
+        where: { id: workshop.id },
+        data: {
+          seats_filled: newFilled,
           ...(shouldBeFull ? { status: 'full' } : {}),
         },
       });
@@ -79,7 +74,14 @@ export async function POST(request, { params }) {
     return NextResponse.json({
       success: true,
       waitlisted: isWaitlist,
-      registration,
+      registration: {
+        _id: String(registration.id),
+        id: String(registration.id),
+        name: registration.name,
+        email: registration.email,
+        seatsBooked: registration.seats_booked,
+        status: registration.status,
+      },
       message: isWaitlist
         ? 'This workshop is currently full. You have been added to the priority waitlist!'
         : 'Your spot has been successfully reserved! We will send workshop details to your email.',

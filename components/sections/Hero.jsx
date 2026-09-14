@@ -86,8 +86,6 @@ export default function Hero() {
               autoPlay
               muted
               playsInline
-              poster={posterImage}
-              onEnded={() => setUseVideo(false)}
               onError={handleVideoError}
               className="w-full h-full object-cover object-center"
             >
@@ -152,7 +150,7 @@ export default function Hero() {
       </section>
 
       {/* ── 2. HANDCRAFTED MOMENTS SECTION (BELOW HERO) ── */}
-      <section className="w-full bg-cream py-16 sm:py-24 border-b border-sand/40 relative z-20">
+      <section className="w-full bg-mocha-soft py-16 sm:py-24 border-b border-sand/40 relative z-20">
         <div className="site-container">
           <div className="max-w-2xl mx-auto text-center flex flex-col items-center">
             {/* Pre-label */}

@@ -507,19 +507,27 @@ export default function AddProductPage() {
             />
           </div>
 
-          <div className="pt-2 flex flex-wrap gap-6">
-            <label className="inline-flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={featured} onChange={(e) => setFeatured(e.target.checked)} className="w-4 h-4 accent-warmBrown" />
-              <span className="text-body-sm font-sans font-medium text-charcoal">Featured Product</span>
-            </label>
-            <label className="inline-flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={newArrival} onChange={(e) => setNewArrival(e.target.checked)} className="w-4 h-4 accent-warmBrown" />
-              <span className="text-body-sm font-sans font-medium text-charcoal">New Arrival</span>
-            </label>
-            <label className="inline-flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={customizable} onChange={(e) => setCustomizable(e.target.checked)} className="w-4 h-4 accent-warmBrown" />
-              <span className="text-body-sm font-sans font-medium text-charcoal">Customizable</span>
-            </label>
+          <div className="pt-2 flex flex-col gap-4">
+            <div className="flex flex-wrap gap-6">
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={featured} onChange={(e) => setFeatured(e.target.checked)} className="w-4 h-4 accent-warmBrown" />
+                <span className="text-body-sm font-sans font-medium text-charcoal">Featured Product</span>
+              </label>
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={newArrival} onChange={(e) => setNewArrival(e.target.checked)} className="w-4 h-4 accent-warmBrown" />
+                <span className="text-body-sm font-sans font-medium text-charcoal">New Arrival</span>
+              </label>
+            </div>
+
+            <div className="p-4 bg-ivory border border-border/80 rounded-sm space-y-1">
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={customizable} onChange={(e) => setCustomizable(e.target.checked)} className="w-4 h-4 accent-warmBrown" />
+                <span className="text-body-sm font-sans font-medium text-charcoal">Available for Customization</span>
+              </label>
+              <p className="text-body-xs text-charcoal-400 font-light leading-relaxed pl-6">
+                If enabled, this product will appear in the Customization list, where customers can choose it as a base for a custom order request. If disabled, it will only appear in the regular Shop.
+              </p>
+            </div>
           </div>
         </div>
 

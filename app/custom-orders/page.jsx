@@ -1,6 +1,7 @@
+import { Suspense } from 'react';
 import SectionHeading from '@/components/ui/SectionHeading';
 import CustomOrderForm from '@/components/forms/CustomOrderForm';
-import PlaceholderImage from '@/components/ui/PlaceholderImage';
+import CraftStudioImage from '@/components/ui/CraftStudioImage';
 
 export const metadata = {
   title: 'Custom Crochet Creations | Handmade Crochet Orders | Noolin Nayam by Divya',
@@ -12,7 +13,7 @@ export default function CustomOrdersPage() {
   return (
     <div className="pt-28 pb-6 bg-ivory">
       {/* Header */}
-      <div className="bg-surface border-b border-border/60 py-16 mb-16">
+      <div className="bg-mocha-gradient border-b border-border/60 py-16 mb-16 shadow-warm-xs">
         <div className="site-container text-center">
           <SectionHeading
             label="Bespoke Atelier"
@@ -29,12 +30,19 @@ export default function CustomOrdersPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
           {/* Main Form Column (8 cols) */}
           <div className="lg:col-span-8">
-            <CustomOrderForm />
+            <Suspense fallback={
+              <div className="p-8 text-center text-charcoal-400 font-sans border border-border bg-cream">
+                <div className="w-6 h-6 border-2 border-warmBrown border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                <p className="text-body-xs font-light">Loading customization atelier...</p>
+              </div>
+            }>
+              <CustomOrderForm />
+            </Suspense>
           </div>
 
           {/* Side Editorial Info (4 cols) */}
           <div className="lg:col-span-4 space-y-8 sticky top-32">
-            <div className="bg-cream border border-border p-6 space-y-4">
+            <div className="section-highlight-copper-vertical border border-border/60 p-6 space-y-4 rounded-xl shadow-warm-xs">
               <h3 className="font-serif font-light text-charcoal text-2xl border-b border-border pb-3">
                 How Custom Orders Work
               </h3>
@@ -71,14 +79,8 @@ export default function CustomOrdersPage() {
               </ul>
             </div>
 
-            {/* Editorial Craft Photo Placeholder */}
-            <div className="hover-zoom">
-              <PlaceholderImage
-                label="Custom Craft Studio — Hands crocheting custom dress"
-                aspect="3/4"
-                className="w-full shadow-warm-md"
-              />
-            </div>
+            {/* Editorial Craft Photo */}
+            <CraftStudioImage />
           </div>
         </div>
       </div>

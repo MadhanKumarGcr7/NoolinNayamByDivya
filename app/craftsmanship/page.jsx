@@ -9,7 +9,7 @@ export const metadata = {
 export default function CraftsmanshipPage() {
   return (
     <div className="pt-28 pb-6 bg-ivory">
-      <div className="bg-surface border-b border-border/60 py-20 mb-16">
+      <div className="bg-mocha-gradient border-b border-border/60 py-20 mb-16 shadow-warm-xs">
         <div className="editorial-container text-center">
           <SectionHeading
             label="The Atelier Process"

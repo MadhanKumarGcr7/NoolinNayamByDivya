@@ -1,12 +1,10 @@
 /**
- * Admin Design Gallery Item Operations API — PATCH & DELETE /api/admin/design-gallery/[id]
- * ────────────────────────────────────────────────────────────────────────────
- * Hardened design gallery item updates and deletion. Protected: owner authentication required.
+ * Admin Design Gallery Item Operations API (MySQL / Prisma)
+ * PATCH & DELETE /api/admin/design-gallery/[id]
  */
 
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/db';
-import DesignGalleryImage from '@/models/DesignGalleryImage';
+import prisma from '@/lib/prisma';
 import {
   requireAuth,
   sanitizeRequestData,
@@ -25,29 +23,33 @@ export async function PATCH(request, { params }) {
       return applySecurityHeaders(resp, request);
     }
 
-    await connectDB();
-    const id = params?.id;
-    const { body } = await sanitizeRequestData(request);
-
-    const updates = {};
-    if (body.visible !== undefined) updates.visible = Boolean(body.visible);
-    if (body.caption !== undefined) updates.caption = String(body.caption).trim();
-    if (body.category !== undefined) updates.category = String(body.category).trim();
-    if (body.tags !== undefined) {
-      updates.tags = Array.isArray(body.tags)
-        ? body.tags
-        : String(body.tags || '')
-            .split(',')
-            .map((t) => t.trim())
-            .filter(Boolean);
-    }
-
-    const updatedImage = await DesignGalleryImage.findByIdAndUpdate(id, updates, { new: true, runValidators: true });
-
-    if (!updatedImage) {
+    const id = Number(params?.id);
+    if (isNaN(id)) {
       const resp = NextResponse.json({ error: 'Gallery image not found.' }, { status: 404 });
       return applySecurityHeaders(resp, request);
     }
+
+    const { body } = await sanitizeRequestData(request);
+    const updates = {};
+
+    if (body.visible !== undefined) updates.visible = Boolean(body.visible);
+    if (body.caption !== undefined) updates.caption = String(body.caption).trim();
+    if (body.tags !== undefined) {
+      updates.tags = Array.isArray(body.tags)
+        ? body.tags
+        : String(body.tags || '').split(',').map((t) => t.trim()).filter(Boolean);
+    }
+
+    if (body.category) {
+      let cat = await prisma.designGalleryCategory.findFirst({ where: { name: body.category } });
+      if (!cat) cat = await prisma.designGalleryCategory.create({ data: { name: body.category } });
+      updates.category_id = cat.id;
+    }
+
+    const updatedImage = await prisma.designGalleryImage.update({
+      where: { id },
+      data: updates,
+    });
 
     logSecurityEvent({
       event: 'DESIGN_GALLERY_IMAGE_UPDATED',
@@ -58,7 +60,14 @@ export async function PATCH(request, { params }) {
       details: updates,
     });
 
-    const response = NextResponse.json({ success: true, image: updatedImage });
+    const response = NextResponse.json({
+      success: true,
+      image: {
+        _id: String(updatedImage.id),
+        id: String(updatedImage.id),
+        visible: updatedImage.visible,
+      },
+    });
     return applySecurityHeaders(response, request);
   } catch (error) {
     return handleApiError(error, request);
@@ -73,14 +82,13 @@ export async function DELETE(request, { params }) {
       return applySecurityHeaders(resp, request);
     }
 
-    await connectDB();
-    const id = params?.id;
-
-    const deleted = await DesignGalleryImage.findByIdAndDelete(id);
-    if (!deleted) {
+    const id = Number(params?.id);
+    if (isNaN(id)) {
       const resp = NextResponse.json({ error: 'Gallery image not found.' }, { status: 404 });
       return applySecurityHeaders(resp, request);
     }
+
+    await prisma.designGalleryImage.delete({ where: { id } });
 
     logSecurityEvent({
       event: 'DESIGN_GALLERY_IMAGE_DELETED',

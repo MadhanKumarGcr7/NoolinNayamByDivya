@@ -16,6 +16,7 @@ const useCartStore = create(
       isDrawerOpen: false,
       itemCount: 0,
       subtotal: 0,
+      appliedCoupon: null, // { code, discountType, discountValue, maxDiscount, minOrderValue, discountAmount }
 
       // Computed helpers — call after any mutation
       _recompute: (items) => ({
@@ -25,6 +26,9 @@ const useCartStore = create(
       }),
 
       // ── ACTIONS ─────────────────────────────────────────────────────────
+
+      setAppliedCoupon: (coupon) => set({ appliedCoupon: coupon }),
+      removeCoupon:     () => set({ appliedCoupon: null }),
 
       /**
        * Add item to cart. If same product+size+color exists, increment quantity.
@@ -86,7 +90,7 @@ const useCartStore = create(
        * Clear all items
        */
       clearCart: () => {
-        set({ items: [], itemCount: 0, subtotal: 0 });
+        set({ items: [], itemCount: 0, subtotal: 0, appliedCoupon: null });
       },
 
       /**
@@ -99,9 +103,10 @@ const useCartStore = create(
     {
       name: 'noolinnayam-cart',   // localStorage key
       partialize: (state) => ({
-        items:     state.items,
-        itemCount: state.itemCount,
-        subtotal:  state.subtotal,
+        items:         state.items,
+        itemCount:     state.itemCount,
+        subtotal:      state.subtotal,
+        appliedCoupon: state.appliedCoupon,
       }),
     }
   )

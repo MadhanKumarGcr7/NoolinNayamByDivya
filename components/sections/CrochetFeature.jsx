@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 export default function CrochetFeature() {
   return (
-    <section className="py-24 lg:py-32 bg-cream overflow-hidden" aria-labelledby="crochet-feature-heading">
+    <section className="py-24 lg:py-32 bg-copper-soft border-y border-border/60 overflow-hidden" aria-labelledby="crochet-feature-heading">
       <div className="site-container">
         {/* Section Header */}
         <div className="max-w-2xl mx-auto text-center mb-16 lg:mb-20 reveal">
@@ -38,7 +38,7 @@ export default function CrochetFeature() {
                 className="w-full h-full hidden"
               />
             </div>
-            <div className="bg-ivory p-8 border border-border/60">
+            <div className="section-highlight-copper-vertical p-8 border border-border/60 rounded-xl shadow-warm-xs">
               <p className="text-label-md uppercase tracking-[0.18em] text-warmBrown mb-2">Technique</p>
               <h3 className="font-serif font-light text-charcoal text-2xl mb-3">Intricate Open-Stitch</h3>
               <p className="text-body-sm text-charcoal-600 font-light leading-relaxed">

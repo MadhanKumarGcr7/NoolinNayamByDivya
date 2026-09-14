@@ -1,69 +1,66 @@
+/**
+ * Public Filters API Route (MySQL / Prisma)
+ * GET /api/filters
+ */
+
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/db';
-import Filter from '@/models/Filter';
-import NavigationItem from '@/models/NavigationItem';
+import prisma from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
   try {
-    const conn = await connectDB();
-    if (!conn) {
-      return NextResponse.json({ success: true, filters: [] });
-    }
-
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category');
 
-    let targetFilterIds = null;
+    let filters = [];
 
     if (category && category !== 'all') {
-      const cleanCategory = category.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-      const navItems = await NavigationItem.find({ linkType: 'category', visible: true }).lean();
-      
-      const navItem = navItems.find((item) => {
-        const itemSlugClean = (item.categorySlug || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-        const itemLabelClean = (item.label || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-        return itemSlugClean === cleanCategory || itemLabelClean === cleanCategory;
+      const navItem = await prisma.navigationItem.findFirst({
+        where: {
+          visible: true,
+          OR: [
+            { category: { slug: category } },
+            { label: { equals: category } },
+          ],
+        },
+        include: {
+          navigation_item_filters: {
+            include: { filter: { include: { options: true } } },
+            orderBy: { display_order: 'asc' },
+          },
+        },
       });
 
-      if (navItem && Array.isArray(navItem.assignedFilters) && navItem.assignedFilters.length > 0) {
-        // Extract assigned filterIds preserving category order
-        targetFilterIds = navItem.assignedFilters
-          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-          .map((af) => (af.filterId?._id || af.filterId).toString());
+      if (navItem && navItem.navigation_item_filters.length > 0) {
+        filters = navItem.navigation_item_filters
+          .map(nif => nif.filter)
+          .filter(f => f && f.active);
       }
     }
 
-    let filters = [];
-
-    if (targetFilterIds && targetFilterIds.length > 0) {
-      const dbFilters = await Filter.find({
-        _id: { $in: targetFilterIds },
-        active: true,
-      }).lean();
-
-      // Sort according to targetFilterIds order
-      filters = targetFilterIds
-        .map((id) => dbFilters.find((f) => f._id.toString() === id))
-        .filter(Boolean);
-    } else {
-      // Fallback: return all active filters
-      filters = await Filter.find({ active: true }).sort({ order: 1 }).lean();
+    if (filters.length === 0) {
+      filters = await prisma.filter.findMany({
+        where: { active: true },
+        include: { options: true },
+      });
     }
 
     const formattedFilters = filters.map((f) => ({
-      _id: f._id.toString(),
+      _id: String(f.id),
+      id: String(f.id),
       name: f.name,
       slug: f.slug,
       type: f.type,
-      options: f.options || [],
-      rangeMin: f.rangeMin,
-      rangeMax: f.rangeMax,
-      rangeUnit: f.rangeUnit,
-      rangeStep: f.rangeStep,
+      options: f.options ? f.options.map(o => ({
+        label: o.label,
+        value: o.value,
+        hex: o.hex,
+      })) : [],
+      rangeMin: f.range_min,
+      rangeMax: f.range_max,
+      rangeUnit: f.range_unit,
       active: f.active,
-      order: f.order,
     }));
 
     return NextResponse.json({ success: true, filters: formattedFilters });

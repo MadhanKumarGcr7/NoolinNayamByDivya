@@ -34,12 +34,12 @@ export default function WhatsAppCommunityCTA({ source = 'shop_page', className =
   };
 
   return (
-    <section className={`bg-cream border-t border-border py-8 lg:py-10 overflow-hidden ${className}`}>
+    <section className={`bg-mocha-gradient border-t border-border py-8 lg:py-10 overflow-hidden ${className}`}>
       <div className="site-container">
         <div className="max-w-3xl mx-auto text-center space-y-6 reveal">
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-ivory border border-border text-label-xs uppercase tracking-[0.18em] text-warmBrown font-medium">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <div className="inline-flex items-center gap-2 px-3 py-1 badge-warm-sand text-label-xs uppercase tracking-[0.18em] font-medium shadow-xs">
+            <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
             WhatsApp Community
           </div>
 

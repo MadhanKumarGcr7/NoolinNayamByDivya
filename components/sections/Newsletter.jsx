@@ -35,7 +35,7 @@ export default function Newsletter() {
   };
 
   return (
-    <section className="py-20 lg:py-28 bg-ivory border-t border-border/50" aria-labelledby="newsletter-heading">
+    <section className="py-20 lg:py-28 section-highlight-copper border-t border-border/50" aria-labelledby="newsletter-heading">
       <div className="editorial-container text-center reveal">
         <p className="section-label mb-3">Community</p>
         <h2 id="newsletter-heading" className="font-serif font-light text-charcoal text-display-md mb-4">

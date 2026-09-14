@@ -192,7 +192,14 @@ export default function AdminProductsPage() {
                           )}
                         </div>
                         <div>
-                          <p className="text-body-sm font-sans font-medium text-charcoal line-clamp-1">{product.name}</p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-body-sm font-sans font-medium text-charcoal line-clamp-1">{product.name}</p>
+                            {product.customizable && (
+                              <span className="px-1.5 py-0.5 text-[10px] font-sans uppercase tracking-wider font-semibold bg-warmBrown/15 text-warmBrown border border-warmBrown/30 rounded-xs flex-shrink-0" title="Available for Customization in Customization List">
+                                ✨ Customizable
+                              </span>
+                            )}
+                          </div>
                           <p className="text-body-xs text-charcoal-400 font-light truncate max-w-xs">{product.slug}</p>
                         </div>
                       </div>

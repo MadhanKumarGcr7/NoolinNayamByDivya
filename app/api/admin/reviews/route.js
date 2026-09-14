@@ -1,13 +1,10 @@
 /**
- * Admin Reviews Management API Route
- * GET /api/admin/reviews — Fetch all customer feedback & reviews across products
- * ────────────────────────────────────────────────────────────────────────────
- * Protected: owner JWT required.
+ * Admin Reviews Management API Route (MySQL / Prisma)
+ * GET /api/admin/reviews
  */
 
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/db';
-import Review from '@/models/Review';
+import prisma from '@/lib/prisma';
 import { getAuthFromRequest } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -19,28 +16,44 @@ export async function GET(request) {
   }
 
   try {
-    await connectDB();
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const search = searchParams.get('search');
 
-    const query = {};
+    const where = {};
     if (status && status !== 'all') {
-      query.status = status;
+      where.status = status;
     }
     if (search) {
-      query.$or = [
-        { customerName: { $regex: search, $options: 'i' } },
-        { customerEmail: { $regex: search, $options: 'i' } },
-        { productName: { $regex: search, $options: 'i' } },
-        { headline: { $regex: search, $options: 'i' } },
-        { comment: { $regex: search, $options: 'i' } },
+      where.OR = [
+        { customer_name: { contains: search } },
+        { customer_email: { contains: search } },
+        { product_name: { contains: search } },
+        { headline: { contains: search } },
+        { comment: { contains: search } },
       ];
     }
 
-    const reviews = await Review.find(query)
-      .sort({ createdAt: -1 })
-      .lean();
+    const rawReviews = await prisma.review.findMany({
+      where,
+      orderBy: { created_at: 'desc' },
+    });
+
+    const reviews = rawReviews.map(r => ({
+      _id: String(r.id),
+      id: String(r.id),
+      productId: r.product_id ? String(r.product_id) : null,
+      productSlug: r.product_slug,
+      productName: r.product_name,
+      customerName: r.customer_name,
+      customerEmail: r.customer_email,
+      rating: r.rating,
+      headline: r.headline,
+      comment: r.comment,
+      status: r.status,
+      verifiedPurchase: r.verified_purchase,
+      createdAt: r.created_at,
+    }));
 
     return NextResponse.json({ reviews });
   } catch (error) {

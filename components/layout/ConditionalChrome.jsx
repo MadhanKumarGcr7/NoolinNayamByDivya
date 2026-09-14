@@ -4,13 +4,14 @@ import { usePathname } from 'next/navigation';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import CartDrawer from '@/components/cart/CartDrawer';
+import LoginPromptModal from '@/components/auth/LoginPromptModal';
 import useScrollReveal from '@/hooks/useScrollReveal';
 
 /**
  * ConditionalChrome
  * ────────────────────────────────────────────────────────────────────────────
  * Wraps the page content and conditionally renders the storefront Navbar,
- * Footer, and CartDrawer based on the current route.
+ * Footer, CartDrawer, and LoginPromptModal based on the current route.
  * Also initializes the site-wide scroll reveal IntersectionObserver so that
  * `.reveal` elements animate correctly on every page (not just the homepage).
  *
@@ -35,13 +36,14 @@ export default function ConditionalChrome({ children }) {
     return <>{children}</>;
   }
 
-  // Normal storefront pages — include Navbar, Footer, CartDrawer
+  // Normal storefront pages — include Navbar, Footer, CartDrawer, LoginPromptModal
   return (
     <>
       <Navbar />
       <main id="main-content">{children}</main>
       <Footer />
       <CartDrawer />
+      <LoginPromptModal />
     </>
   );
 }
