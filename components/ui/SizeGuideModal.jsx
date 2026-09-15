@@ -6,6 +6,20 @@ import Link from 'next/link';
 
 export const SIZE_CHARTS = [
   {
+    id: 'frock',
+    title: 'Frock',
+    subtitle: 'Dresses & Frocks',
+    image: '/assets/size-guide/frock-size-chart.jpg',
+    description: 'Bust front alone and dress length measurements in inches for ages 1 to 15 years.',
+  },
+  {
+    id: 'short-top',
+    title: 'Short Top',
+    subtitle: 'Crochet Tops & Blouses',
+    image: '/assets/size-guide/short-top-size-chart.jpg',
+    description: 'Bust front alone and garment length measurements in inches for ages 1 to 15 years.',
+  },
+  {
     id: 'full-skirt',
     title: 'Full Skirt',
     subtitle: 'Full Length Twirl Skirts',
@@ -32,13 +46,6 @@ export const SIZE_CHARTS = [
     subtitle: 'Casual Shorts',
     image: '/assets/size-guide/shorts-size-chart.jpg',
     description: 'Waist and side length measurements in inches for ages 1 to 15 years.',
-  },
-  {
-    id: 'short-top',
-    title: 'Short Top',
-    subtitle: 'Crochet Tops & Blouses',
-    image: '/assets/size-guide/short-top-size-chart.jpg',
-    description: 'Bust front alone and garment length measurements in inches for ages 1 to 15 years.',
   },
 ];
 

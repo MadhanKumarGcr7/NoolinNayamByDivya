@@ -9,6 +9,13 @@ export const metadata = {
 
 const SIZE_CHARTS = [
   {
+    id: 'frock',
+    title: 'Frock Size Chart',
+    category: 'Dresses & Frocks',
+    image: '/assets/size-guide/frock-size-chart.jpg',
+    description: 'Bust front alone and dress length measurements in inches for ages 1 to 15 years.',
+  },
+  {
     id: 'short-top',
     title: 'Short Top Size Chart',
     category: 'Tops & Blouses',
