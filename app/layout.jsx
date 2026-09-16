@@ -7,6 +7,11 @@ export const metadata = {
   title: brandConfig.seo.title,
   description: brandConfig.seo.description,
   keywords: brandConfig.seo.keywords.join(', '),
+  icons: {
+    icon: '/favicon.png',
+    shortcut: '/favicon.png',
+    apple: '/apple-touch-icon.png',
+  },
   openGraph: {
     title: brandConfig.seo.title,
     description: brandConfig.seo.description,
@@ -27,6 +32,8 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <head>
+        <link rel="icon" href="/favicon.png" type="image/png" sizes="any" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
