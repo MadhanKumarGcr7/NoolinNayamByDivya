@@ -9,7 +9,8 @@ import { imageConfig } from '@/lib/image-config';
 const HERO_MP4 = imageConfig.hero.videoDesktop || '/assets/hero/desktop-hero.mp4';
 const HERO_WEBM = imageConfig.hero.videoWebm || '/assets/hero/desktop-hero.webm';
 const HERO_POSTER = imageConfig.hero.videoPoster || '/assets/hero/desktop-hero-poster.jpg';
-const HERO_FALLBACK_IMAGE = imageConfig.hero.desktop || '/assets/hero/desktop-hero.jpeg';
+const HERO_DESKTOP_IMAGE = imageConfig.hero.desktop || '/assets/hero/desktop-hero.jpeg';
+const HERO_MOBILE_IMAGE = imageConfig.hero.mobile || '/assets/hero/mobile-hero.jpeg';
 
 // Configurable flag for mobile video playback (false = static image on mobile)
 const HERO_VIDEO_ON_MOBILE = imageConfig.hero.heroVideoOnMobile ?? false;
@@ -19,21 +20,28 @@ export default function Hero() {
   const videoRef = useRef(null);
 
   const [useVideo, setUseVideo] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
   const [posterImage, setPosterImage] = useState(HERO_POSTER);
 
   useEffect(() => {
+    const checkMobile = () => {
+      const mobileState = window.innerWidth < 768;
+      setIsMobile(mobileState);
+
+      // Disable video on mobile if HERO_VIDEO_ON_MOBILE is false
+      if (mobileState && !HERO_VIDEO_ON_MOBILE) {
+        setUseVideo(false);
+        setPosterImage(HERO_MOBILE_IMAGE);
+      }
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+
     // 1. Accessibility Check: prefers-reduced-motion
     const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     if (reducedMotionQuery.matches) {
       setUseVideo(false);
-      return;
-    }
-
-    // 2. Mobile Device Check (if mobile video is disabled)
-    const isMobile = window.innerWidth < 768;
-    if (isMobile && !HERO_VIDEO_ON_MOBILE) {
-      setUseVideo(false);
-      return;
     }
 
     // Listener for reduced motion setting changes
@@ -52,6 +60,7 @@ export default function Hero() {
     window.addEventListener('scroll', handleScroll, { passive: true });
 
     return () => {
+      window.removeEventListener('resize', checkMobile);
       reducedMotionQuery.removeEventListener('change', handleMotionChange);
       window.removeEventListener('scroll', handleScroll);
     };
@@ -63,13 +72,13 @@ export default function Hero() {
   };
 
   const handlePosterError = () => {
-    // Fall back to existing desktop-hero.jpeg if poster frame is missing
-    setPosterImage(HERO_FALLBACK_IMAGE);
+    // Fall back to desktop-hero.jpeg or mobile-hero.jpeg if poster frame fails
+    setPosterImage(isMobile ? HERO_MOBILE_IMAGE : HERO_DESKTOP_IMAGE);
   };
 
   return (
     <>
-      {/* ── 1. FULL-VIEWPORT HERO BACKGROUND (Video or Poster Fallback) ── */}
+      {/* ── 1. FULL-VIEWPORT HERO BACKGROUND (Desktop Video vs Mobile Static Image) ── */}
       <section
         className="relative w-full h-screen overflow-hidden bg-charcoal"
         aria-label="Hero — Noolin Nayam by Divya"
@@ -80,18 +89,18 @@ export default function Hero() {
           className="absolute inset-0 scale-105"
           style={{ willChange: 'transform' }}
         >
-          {useVideo ? (
+          {useVideo && !isMobile ? (
             <video
               ref={videoRef}
               autoPlay
               muted
               playsInline
+              loop
               onError={handleVideoError}
-              className="w-full h-full object-cover object-center"
+              className="w-full h-full object-cover object-center hidden md:block"
             >
               <source src={HERO_WEBM} type="video/webm" />
               <source src={HERO_MP4} type="video/mp4" />
-              {/* Fallback image if HTML5 video tag is unsupported */}
               <img
                 src={posterImage}
                 alt="Handcrafted crochet and kidswear background"
@@ -99,17 +108,22 @@ export default function Hero() {
                 className="w-full h-full object-cover object-center"
               />
             </video>
-          ) : (
-            <Image
-              src={posterImage}
-              alt="Handcrafted crochet and kidswear by Noolin Nayam by Divya"
-              fill
-              priority
-              quality={95}
-              onError={handlePosterError}
-              className="object-cover object-center"
-              sizes="100vw"
-            />
+          ) : null}
+
+          {/* Static Mobile / Fallback Hero Image (Pure static, no video on mobile) */}
+          {(!useVideo || isMobile) && (
+            <div className="relative w-full h-full">
+              <picture>
+                <source media="(max-width: 767px)" srcset={HERO_MOBILE_IMAGE} />
+                <source media="(min-width: 768px)" srcset={HERO_DESKTOP_IMAGE} />
+                <img
+                  src={isMobile ? HERO_MOBILE_IMAGE : posterImage}
+                  alt="Handcrafted crochet and kidswear by Noolin Nayam by Divya"
+                  onError={handlePosterError}
+                  className="w-full h-full object-cover object-center"
+                />
+              </picture>
+            </div>
           )}
         </div>
 
