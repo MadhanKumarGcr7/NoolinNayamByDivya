@@ -95,7 +95,6 @@ export default function Hero() {
               autoPlay
               muted
               playsInline
-              loop
               onError={handleVideoError}
               className="w-full h-full object-cover object-center hidden md:block"
             >
