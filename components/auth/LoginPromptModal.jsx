@@ -181,27 +181,6 @@ export default function LoginPromptModal() {
           </div>
         )}
 
-        {/* Google OAuth Button for Modal */}
-        <div className="mb-6 space-y-3">
-          <GoogleLoginButton
-            isOwnerLogin={false}
-            onSuccess={async () => {
-              const { fetchUser } = useAuthStore.getState();
-              await fetchUser();
-              const actionType = executePendingAction();
-              if (actionType === 'buynow') {
-                router.push('/checkout');
-              }
-            }}
-          />
-          <div className="relative flex items-center justify-center">
-            <div className="w-full border-t border-border" />
-            <span className="absolute bg-ivory px-3 text-label-xs uppercase tracking-wider text-charcoal-400 font-sans font-medium">
-              or
-            </span>
-          </div>
-        </div>
-
         {/* LOGIN FORM */}
         {mode === 'login' ? (
           <form onSubmit={handleLoginSubmit} className="space-y-4">
@@ -336,6 +315,27 @@ export default function LoginPromptModal() {
             </div>
           </form>
         )}
+
+        {/* Google OAuth Button for Modal at Bottom */}
+        <div className="mt-6 space-y-3">
+          <div className="relative flex items-center justify-center">
+            <div className="w-full border-t border-border" />
+            <span className="absolute bg-[#F5EFE4] px-3 text-label-xs uppercase tracking-wider text-charcoal-400 font-sans font-medium">
+              or continue with
+            </span>
+          </div>
+          <GoogleLoginButton
+            isOwnerLogin={false}
+            onSuccess={async () => {
+              const { fetchUser } = useAuthStore.getState();
+              await fetchUser();
+              const actionType = executePendingAction();
+              if (actionType === 'buynow') {
+                router.push('/checkout');
+              }
+            }}
+          />
+        </div>
       </div>
     </div>
   );

@@ -117,19 +117,6 @@ function LoginForm() {
             </div>
           ) : (
             <>
-              <div className="mb-6 space-y-4">
-                <GoogleLoginButton
-                  isOwnerLogin={false}
-                  onSuccess={() => router.push(redirect)}
-                />
-                <div className="relative flex items-center justify-center">
-                  <div className="w-full border-t border-border" />
-                  <span className="absolute bg-cream/95 px-3 text-label-xs uppercase tracking-wider text-charcoal-400 font-sans font-medium">
-                    or with email & password
-                  </span>
-                </div>
-              </div>
-
               <form onSubmit={handleSubmit} className="space-y-5">
                 <Input
                   label="Email Address"
@@ -180,6 +167,20 @@ function LoginForm() {
                   {isCheckoutRedirect ? 'SIGN IN & PROCEED TO CHECKOUT' : 'SIGN IN'}
                 </Button>
               </form>
+
+              {/* Google Sign In Divider & Button at bottom of sign in bar */}
+              <div className="mt-6 space-y-4">
+                <div className="relative flex items-center justify-center">
+                  <div className="w-full border-t border-border" />
+                  <span className="absolute bg-cream/95 px-3 text-label-xs uppercase tracking-wider text-charcoal-400 font-sans font-medium">
+                    or continue with
+                  </span>
+                </div>
+                <GoogleLoginButton
+                  isOwnerLogin={false}
+                  onSuccess={() => router.push(redirect)}
+                />
+              </div>
 
               {/* Signup link */}
               <div className="mt-8 pt-6 border-t border-border/60 text-center sm:text-left">

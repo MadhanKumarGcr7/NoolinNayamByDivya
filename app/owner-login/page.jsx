@@ -67,23 +67,6 @@ export default function OwnerLoginPage() {
 
         {/* Login Card */}
         <div className="bg-charcoal-800 border border-ivory/10 p-8 shadow-warm-xl space-y-6">
-          
-          {/* Google Auth for Admin */}
-          <div>
-            <GoogleLoginButton
-              isOwnerLogin={true}
-              buttonText="Sign in as Admin with Google"
-              onSuccess={handleGoogleSuccess}
-            />
-          </div>
-
-          <div className="relative flex items-center justify-center">
-            <div className="w-full border-t border-ivory/10" />
-            <span className="absolute bg-charcoal-800 px-3 text-label-xs uppercase tracking-wider text-ivory/30 font-sans">
-              or use password
-            </span>
-          </div>
-
           {/* Email / Password Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="flex flex-col gap-1.5">
@@ -140,6 +123,22 @@ export default function OwnerLoginPage() {
               <span>Sign In with Password</span>
             </button>
           </form>
+
+          <div className="relative flex items-center justify-center pt-2">
+            <div className="w-full border-t border-ivory/10" />
+            <span className="absolute bg-charcoal-800 px-3 text-label-xs uppercase tracking-wider text-ivory/30 font-sans">
+              or continue with
+            </span>
+          </div>
+
+          {/* Google Auth for Admin at bottom */}
+          <div>
+            <GoogleLoginButton
+              isOwnerLogin={true}
+              buttonText="Sign in as Admin with Google"
+              onSuccess={handleGoogleSuccess}
+            />
+          </div>
         </div>
 
         <p className="text-center mt-6 text-label-sm uppercase tracking-[0.16em] text-ivory/15 font-sans">
