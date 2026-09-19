@@ -99,11 +99,11 @@ export default function ProductInfo({ product }) {
       {/* Price row */}
       <div className="flex items-center gap-3">
         <span className="font-serif font-light text-charcoal text-2xl">
-          {currencySymbol}{product.price?.toLocaleString('en-IN')}
+          {currencySymbol}{Number(product.price || 0).toLocaleString('en-IN')}
         </span>
-        {product.comparePrice && (
+        {product.comparePrice && Number(product.comparePrice) > Number(product.price) && (
           <span className="text-body-sm text-charcoal-400 line-through">
-            {currencySymbol}{product.comparePrice?.toLocaleString('en-IN')}
+            {currencySymbol}{Number(product.comparePrice).toLocaleString('en-IN')}
           </span>
         )}
         <span className="text-body-xs text-charcoal-400 font-light ml-2">(Taxes included)</span>

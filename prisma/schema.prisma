@@ -60,6 +60,7 @@ model Product {
   slug         String   @unique
   description  String   @db.Text
   price        Decimal  @db.Decimal(10, 2)
+  compare_price Decimal? @db.Decimal(10, 2)
   category_id  Int
   material     String?
   care         String?

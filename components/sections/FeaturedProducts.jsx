@@ -143,11 +143,11 @@ export function ProductCard({ product }) {
 
         <div className="flex items-center gap-2 mt-auto">
           <p className="text-body-sm font-sans font-medium text-charcoal">
-            {currencySymbol}{product.price?.toLocaleString('en-IN')}
+            {currencySymbol}{Number(product.price || 0).toLocaleString('en-IN')}
           </p>
-          {product.comparePrice && (
+          {product.comparePrice && Number(product.comparePrice) > Number(product.price) && (
             <p className="text-body-xs text-charcoal-400 line-through">
-              {currencySymbol}{product.comparePrice.toLocaleString('en-IN')}
+              {currencySymbol}{Number(product.comparePrice).toLocaleString('en-IN')}
             </p>
           )}
         </div>

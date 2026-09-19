@@ -39,6 +39,7 @@ export async function GET(request, { params }) {
       slug: p.slug,
       description: p.description,
       price: Number(p.price),
+      comparePrice: p.compare_price ? Number(p.compare_price) : null,
       category: p.category.slug,
       categoryName: p.category.name,
       material: p.material,

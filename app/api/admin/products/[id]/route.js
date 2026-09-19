@@ -58,6 +58,7 @@ export async function GET(request, { params }) {
       slug: p.slug,
       description: p.description,
       price: Number(p.price),
+      comparePrice: p.compare_price ? Number(p.compare_price) : null,
       category: p.category.slug,
       categoryName: p.category.name,
       material: p.material,
@@ -113,6 +114,7 @@ export async function PUT(request, { params }) {
       slug: customSlug,
       description,
       price,
+      comparePrice,
       category: categorySlug,
       material,
       care,
@@ -130,6 +132,7 @@ export async function PUT(request, { params }) {
     if (name !== undefined) data.name = name.trim();
     if (description !== undefined) data.description = description.trim();
     if (price !== undefined) data.price = parseFloat(price);
+    if (comparePrice !== undefined) data.compare_price = comparePrice && !isNaN(parseFloat(comparePrice)) ? parseFloat(comparePrice) : null;
     if (material !== undefined) data.material = material;
     if (care !== undefined) data.care = care;
     if (featured !== undefined) data.featured = Boolean(featured);
