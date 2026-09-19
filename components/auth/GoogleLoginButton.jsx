@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export default function GoogleLoginButton({
   isOwnerLogin = false,
@@ -11,12 +11,37 @@ export default function GoogleLoginButton({
 }) {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
+  const googleBtnContainerRef = useRef(null);
 
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
   useEffect(() => {
-    // Load Google Identity Services script dynamically if not present
     if (typeof window === 'undefined') return;
+
+    // Load Google Identity Services script
+    const loadGsi = () => {
+      if (window.google?.accounts?.id && googleBtnContainerRef.current) {
+        try {
+          window.google.accounts.id.initialize({
+            client_id: googleClientId,
+            callback: handleGoogleResponse,
+            auto_select: false,
+          });
+
+          // Render official Google button inside container
+          googleBtnContainerRef.current.innerHTML = '';
+          window.google.accounts.id.renderButton(googleBtnContainerRef.current, {
+            theme: 'outline',
+            size: 'large',
+            width: '100%',
+            text: isOwnerLogin ? 'continue_with' : 'signin_with',
+            shape: 'rectangular',
+          });
+        } catch (e) {
+          console.warn('GSI Render warning:', e);
+        }
+      }
+    };
 
     if (!document.getElementById('google-gsi-script')) {
       const script = document.createElement('script');
@@ -24,61 +49,64 @@ export default function GoogleLoginButton({
       script.src = 'https://accounts.google.com/gsi/client';
       script.async = true;
       script.defer = true;
+      script.onload = loadGsi;
       document.head.appendChild(script);
+    } else {
+      loadGsi();
     }
-  }, []);
+  }, [googleClientId, isOwnerLogin]);
 
-  const handleGoogleSignIn = () => {
+  const handleGoogleResponse = (response) => {
+    if (response.credential) {
+      processGoogleToken(response.credential);
+    } else {
+      const err = 'Google sign in was cancelled or failed.';
+      setErrorMsg(err);
+      if (onError) onError(err);
+    }
+  };
+
+  const handleCustomClick = () => {
     setErrorMsg(null);
 
-    if (typeof window === 'undefined' || !window.google?.accounts?.id) {
-      // Fallback: prompt for Google email if GSI script is still initializing or clientId pending
-      const userGoogleEmail = prompt(
-        isOwnerLogin
-          ? 'Enter Google Admin Email (noolinnayambydivya@gmail.com):'
-          : 'Enter your Google Email:'
-      );
-      if (!userGoogleEmail) return;
-
-      // Send to backend with test token structure
-      processGoogleToken(
-        JSON.stringify({
-          email: userGoogleEmail.trim().toLowerCase(),
-          email_verified: true,
-          name: userGoogleEmail.split('@')[0],
-          isDemoPrompt: true,
-        })
-      );
+    // If official GSI button was rendered, trigger click on inner iframe button
+    const gsiBtn = googleBtnContainerRef.current?.querySelector('div[role="button"], iframe, button');
+    if (gsiBtn) {
+      gsiBtn.click();
       return;
     }
 
-    setLoading(true);
-
-    try {
-      window.google.accounts.id.initialize({
-        client_id: googleClientId,
-        callback: (response) => {
-          if (response.credential) {
-            processGoogleToken(response.credential);
-          } else {
-            setLoading(false);
-            const err = 'Google sign in was cancelled or failed.';
-            setErrorMsg(err);
-            if (onError) onError(err);
-          }
-        },
-      });
-
-      window.google.accounts.id.prompt((notification) => {
-        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          // If One Tap is skipped, fallback to token request
+    if (typeof window !== 'undefined' && window.google?.accounts?.id) {
+      setLoading(true);
+      try {
+        window.google.accounts.id.initialize({
+          client_id: googleClientId,
+          callback: handleGoogleResponse,
+        });
+        window.google.accounts.id.prompt((notification) => {
           setLoading(false);
-        }
-      });
-    } catch (err) {
-      setLoading(false);
-      console.error('Google Auth Init Error:', err);
+        });
+      } catch (err) {
+        setLoading(false);
+      }
+      return;
     }
+
+    // Direct Google Email prompt fallback
+    const userEmail = prompt(
+      isOwnerLogin
+        ? 'Enter Google Admin Email (noolinnayambydivya@gmail.com):'
+        : 'Enter your Google Email:'
+    );
+    if (!userEmail) return;
+
+    processGoogleToken(
+      JSON.stringify({
+        email: userEmail.trim().toLowerCase(),
+        email_verified: true,
+        name: userEmail.split('@')[0],
+      })
+    );
   };
 
   const processGoogleToken = async (credential) => {
@@ -112,18 +140,22 @@ export default function GoogleLoginButton({
 
   return (
     <div className="w-full flex flex-col gap-2">
+      {/* Official Google GSI Render Target */}
+      <div ref={googleBtnContainerRef} className="w-full flex justify-center min-h-[44px]" />
+
+      {/* Custom styled Fallback Button */}
       <button
         type="button"
-        onClick={handleGoogleSignIn}
+        onClick={handleCustomClick}
         disabled={loading}
-        className={`w-full flex items-center justify-center gap-3 px-5 py-3.5 border transition-all duration-200 font-sans font-medium text-body-sm shadow-sm ${
+        className={`w-full flex items-center justify-center gap-3 px-5 py-3 border transition-all duration-200 font-sans font-medium text-body-sm shadow-sm ${
           isOwnerLogin
             ? 'bg-charcoal-700 text-ivory border-ivory/20 hover:bg-charcoal hover:border-ivory/40'
             : 'bg-white text-charcoal border-border hover:bg-oatmeal/60 hover:border-charcoal-400'
         } ${className}`}
       >
         {loading ? (
-          <span className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+          <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
         ) : (
           <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
             <path
