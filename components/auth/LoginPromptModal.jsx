@@ -6,6 +6,7 @@ import useAuthStore from '@/store/authStore';
 import useAuthModalStore from '@/store/authModalStore';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
+import GoogleLoginButton from '@/components/auth/GoogleLoginButton';
 
 export default function LoginPromptModal() {
   const router = useRouter();
@@ -179,6 +180,27 @@ export default function LoginPromptModal() {
             {error}
           </div>
         )}
+
+        {/* Google OAuth Button for Modal */}
+        <div className="mb-6 space-y-3">
+          <GoogleLoginButton
+            isOwnerLogin={false}
+            onSuccess={async () => {
+              const { fetchUser } = useAuthStore.getState();
+              await fetchUser();
+              const actionType = executePendingAction();
+              if (actionType === 'buynow') {
+                router.push('/checkout');
+              }
+            }}
+          />
+          <div className="relative flex items-center justify-center">
+            <div className="w-full border-t border-border" />
+            <span className="absolute bg-ivory px-3 text-label-xs uppercase tracking-wider text-charcoal-400 font-sans font-medium">
+              or
+            </span>
+          </div>
+        </div>
 
         {/* LOGIN FORM */}
         {mode === 'login' ? (

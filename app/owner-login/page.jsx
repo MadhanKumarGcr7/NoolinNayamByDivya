@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import GoogleLoginButton from '@/components/auth/GoogleLoginButton';
 
 export default function OwnerLoginPage() {
   const router = useRouter();
@@ -37,11 +38,15 @@ export default function OwnerLoginPage() {
     }
   };
 
+  const handleGoogleSuccess = () => {
+    router.push('/admin');
+  };
+
   return (
-    <div className="min-h-screen bg-charcoal flex items-center justify-center px-5">
+    <div className="min-h-screen bg-charcoal flex items-center justify-center px-5 py-12">
       <div className="w-full max-w-sm">
         {/* Brand mark */}
-        <div className="text-center mb-10">
+        <div className="text-center mb-8">
           <div className="w-12 h-12 mx-auto mb-4 rounded-full border border-ivory/20 flex items-center justify-center">
             <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-ivory/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25z" />
@@ -50,14 +55,37 @@ export default function OwnerLoginPage() {
           <p className="text-label-lg uppercase tracking-[0.18em] text-ivory/30 font-sans font-medium">
             Owner Access
           </p>
-          <p className="font-serif font-light text-ivory/60 text-lg mt-2 tracking-[0.04em]">
+          <p className="font-serif font-light text-ivory/60 text-lg mt-1 tracking-[0.04em]">
             Noolin Nayam by Divya
           </p>
         </div>
 
+        {/* Security Notice */}
+        <div className="mb-5 p-3.5 bg-warmBrown/15 border border-warmBrown/30 text-ivory/80 text-body-xs font-sans text-center rounded">
+          🛡️ Admin access is strictly restricted to authorized Google account: <strong className="text-ivory block mt-0.5">noolinnayambydivya@gmail.com</strong>
+        </div>
+
         {/* Login Card */}
-        <div className="bg-charcoal-800 border border-ivory/10 p-8 shadow-warm-xl">
-          <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="bg-charcoal-800 border border-ivory/10 p-8 shadow-warm-xl space-y-6">
+          
+          {/* Google Auth for Admin */}
+          <div>
+            <GoogleLoginButton
+              isOwnerLogin={true}
+              buttonText="Sign in as Admin with Google"
+              onSuccess={handleGoogleSuccess}
+            />
+          </div>
+
+          <div className="relative flex items-center justify-center">
+            <div className="w-full border-t border-ivory/10" />
+            <span className="absolute bg-charcoal-800 px-3 text-label-xs uppercase tracking-wider text-ivory/30 font-sans">
+              or use password
+            </span>
+          </div>
+
+          {/* Email / Password Form */}
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div className="flex flex-col gap-1.5">
               <label
                 htmlFor="owner-email"
@@ -72,7 +100,7 @@ export default function OwnerLoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
-                placeholder="divya@noolinnaayambydivya.com"
+                placeholder="noolinnayambydivya@gmail.com"
                 className="w-full px-4 py-3 bg-charcoal border border-ivory/15 text-ivory text-body-sm font-sans font-light placeholder:text-ivory/20 transition-colors duration-200 focus:outline-none focus:border-ivory/40"
               />
             </div>
@@ -109,7 +137,7 @@ export default function OwnerLoginPage() {
               {loading ? (
                 <span className="w-4 h-4 border-2 border-ivory border-t-transparent rounded-full animate-spin" />
               ) : null}
-              <span>Sign In</span>
+              <span>Sign In with Password</span>
             </button>
           </form>
         </div>

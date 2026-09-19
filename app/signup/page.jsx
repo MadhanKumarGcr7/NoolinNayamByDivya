@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import useAuthStore from '@/store/authStore';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
+import GoogleLoginButton from '@/components/auth/GoogleLoginButton';
 
 function SignupForm() {
   const router = useRouter();
@@ -121,6 +122,20 @@ function SignupForm() {
             </div>
           ) : (
             <>
+              <div className="mb-6 space-y-4">
+                <GoogleLoginButton
+                  isOwnerLogin={false}
+                  buttonText="Sign up with Google"
+                  onSuccess={() => router.push(redirect)}
+                />
+                <div className="relative flex items-center justify-center">
+                  <div className="w-full border-t border-border" />
+                  <span className="absolute bg-cream/95 px-3 text-label-xs uppercase tracking-wider text-charcoal-400 font-sans font-medium">
+                    or with email
+                  </span>
+                </div>
+              </div>
+
               <form onSubmit={handleSubmit} className="space-y-4">
                 <Input
                   label="Full Name"
