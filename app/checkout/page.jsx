@@ -8,17 +8,14 @@ import useCartStore from '@/store/cartStore';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import SectionHeading from '@/components/ui/SectionHeading';
-import { brandConfig } from '@/lib/config';
+import { brandConfig, getShippingFee } from '@/lib/config';
 
 import CouponInput from '@/components/cart/CouponInput';
 
-const { currencySymbol, freeShippingThreshold } = brandConfig.shipping;
+const { currencySymbol } = brandConfig.shipping;
 
 export default function CheckoutPage() {
   const { items, subtotal, clearCart, appliedCoupon } = useCartStore();
-
-  const discountAmount = appliedCoupon?.discountAmount || 0;
-  const finalTotal = Math.max(0, subtotal - discountAmount);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -31,6 +28,10 @@ export default function CheckoutPage() {
     country: 'India',
     notes: '',
   });
+
+  const shippingFee = getShippingFee(formData.state);
+  const discountAmount = appliedCoupon?.discountAmount || 0;
+  const finalTotal = Math.max(0, subtotal + shippingFee - discountAmount);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -414,9 +415,18 @@ export default function CheckoutPage() {
                     <span>−{currencySymbol}{discountAmount.toLocaleString('en-IN')}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-charcoal-600">
-                  <span>Shipping</span>
-                  <span className="text-sage-dark font-medium">FREE</span>
+                <div className="flex justify-between items-start text-charcoal-600">
+                  <div>
+                    <span>Shipping</span>
+                    <span className="text-body-xs text-charcoal-400 block font-light">
+                      {!formData.state.trim()
+                        ? 'Tamil Nadu: ₹60 | Other States: ₹120'
+                        : shippingFee === 60
+                        ? 'Inside State (Tamil Nadu)'
+                        : 'Outside State'}
+                    </span>
+                  </div>
+                  <span className="font-medium text-charcoal">{currencySymbol}{shippingFee}</span>
                 </div>
 
                 <div className="pt-2">

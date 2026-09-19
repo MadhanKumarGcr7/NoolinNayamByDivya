@@ -153,11 +153,9 @@ export default function CartPage() {
                 Order Summary
               </h2>
 
-              {subtotal < freeShippingThreshold && (
-                <div className="bg-ivory p-3 border border-border mb-6 text-body-xs text-charcoal-600 font-light text-center">
-                  Add <strong className="font-medium text-charcoal">{currencySymbol}{(freeShippingThreshold - subtotal).toLocaleString('en-IN')}</strong> more for Free Shipping
-                </div>
-              )}
+              <div className="bg-ivory p-3 border border-border mb-6 text-body-xs text-charcoal-600 font-light text-center">
+                Shipping Rate: <strong className="font-medium text-charcoal">₹60</strong> (Tamil Nadu) • <strong className="font-medium text-charcoal">₹120</strong> (Other States)
+              </div>
 
               <div className="space-y-3 text-body-sm font-sans mb-6">
                 <div className="flex justify-between text-charcoal-600">
@@ -170,9 +168,9 @@ export default function CartPage() {
                     <span>−{currencySymbol}{discountAmount.toLocaleString('en-IN')}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-charcoal-600">
-                  <span>Estimated Shipping</span>
-                  <span>{subtotal >= freeShippingThreshold ? 'FREE' : 'Calculated at checkout'}</span>
+                <div className="flex justify-between items-start text-charcoal-600">
+                  <span>Shipping</span>
+                  <span className="text-right text-body-xs text-charcoal font-medium">₹60 / ₹120<span className="block text-[10px] text-charcoal-400 font-light">Calculated at checkout</span></span>
                 </div>
               </div>
 

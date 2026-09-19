@@ -8,6 +8,7 @@
 import { NextResponse } from 'next/server';
 import Razorpay from 'razorpay';
 import prisma from '@/lib/prisma';
+import { getShippingFee } from '@/lib/config';
 import {
   sanitizeRequestData,
   validateCheckoutOrder,
@@ -128,7 +129,7 @@ export async function POST(request) {
       }
     }
 
-    const shippingFee = 0;
+    const shippingFee = getShippingFee(deliveryAddress?.state);
     const totalAmount = Math.max(0, Math.round((calculatedSubtotal + shippingFee - discountAmount) * 100) / 100);
     const amountPaise = Math.round(totalAmount * 100);
 

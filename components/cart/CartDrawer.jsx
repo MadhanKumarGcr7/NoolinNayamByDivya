@@ -102,11 +102,9 @@ export default function CartDrawer() {
         {/* Summary & CTA */}
         {items.length > 0 && (
           <div className="px-6 py-5 border-t border-border bg-cream">
-            {subtotal < brandConfig.shipping.freeShippingThreshold && (
-              <p className="text-body-xs text-charcoal-400 font-light mb-3 text-center">
-                Add {currencySymbol}{(brandConfig.shipping.freeShippingThreshold - subtotal).toLocaleString('en-IN')} more for free shipping
-              </p>
-            )}
+            <p className="text-body-xs text-charcoal-500 font-light mb-3 text-center bg-ivory py-1.5 border border-border">
+              Shipping: <strong className="font-medium text-charcoal">₹60</strong> (TN) • <strong className="font-medium text-charcoal">₹120</strong> (Other States)
+            </p>
             <div className="space-y-2 mb-3">
               <div className="flex justify-between items-center text-body-xs font-sans">
                 <span className="text-label-md uppercase tracking-[0.14em] text-charcoal-600">Subtotal</span>
@@ -119,7 +117,7 @@ export default function CartDrawer() {
                 </div>
               )}
               <div className="flex justify-between items-center text-body-xs font-sans border-t border-border/60 pt-2">
-                <span className="text-label-md uppercase tracking-[0.14em] text-charcoal font-medium">Est. Total</span>
+                <span className="text-label-md uppercase tracking-[0.14em] text-charcoal font-medium">Est. Subtotal</span>
                 <span className="font-serif font-light text-charcoal text-xl">{currencySymbol}{finalTotal.toLocaleString('en-IN')}</span>
               </div>
             </div>
@@ -127,7 +125,7 @@ export default function CartDrawer() {
             <div className="mb-4">
               <CouponInput />
             </div>
-            <p className="text-body-xs text-charcoal-400 font-light mb-4 text-center">Shipping calculated at checkout</p>
+            <p className="text-[11px] text-charcoal-400 font-light mb-4 text-center">Shipping added at checkout based on delivery state</p>
             <Link href="/checkout" onClick={closeDrawer} className="w-full flex items-center justify-center gap-2 bg-charcoal text-ivory py-4 text-label-lg uppercase tracking-[0.16em] hover:bg-warmBrown transition-colors duration-400 mb-3">
               Proceed to Checkout
             </Link>
