@@ -29,14 +29,17 @@ export default function GoogleLoginButton({
             auto_select: false,
           });
 
+          const containerWidth = googleBtnContainerRef.current.offsetWidth || 380;
+
           // Render official Google button inside container
           googleBtnContainerRef.current.innerHTML = '';
           window.google.accounts.id.renderButton(googleBtnContainerRef.current, {
             theme: 'outline',
             size: 'large',
-            width: '100%',
+            width: Math.min(400, Math.max(240, containerWidth)),
             text: isOwnerLogin ? 'continue_with' : 'signin_with',
             shape: 'rectangular',
+            logo_alignment: 'left',
           });
           setGsiRendered(true);
         } catch (e) {
@@ -143,10 +146,12 @@ export default function GoogleLoginButton({
 
   return (
     <div className="w-full flex flex-col items-center">
-      {/* Official Google GSI Render Target (Single Button) */}
+      {/* Official Google GSI Render Target (Single Button, forced 100% width) */}
       <div
         ref={googleBtnContainerRef}
-        className={`w-full flex justify-center ${gsiRendered ? 'block' : 'hidden'}`}
+        className={`w-full flex justify-center min-h-[44px] [&>div]:!w-full [&>div>iframe]:!w-full [&_iframe]:!w-full [&_iframe]:!max-w-none ${
+          gsiRendered ? 'block' : 'hidden'
+        }`}
       />
 
       {/* Custom styled Fallback Button (Only shown if GSI fails to render) */}
@@ -155,7 +160,7 @@ export default function GoogleLoginButton({
           type="button"
           onClick={handleCustomClick}
           disabled={loading}
-          className={`w-full flex items-center justify-center gap-3 px-5 py-3 border transition-all duration-200 font-sans font-medium text-body-sm shadow-sm ${
+          className={`w-full flex items-center justify-center gap-3 px-5 py-3.5 border transition-all duration-200 font-sans font-medium text-body-sm shadow-sm ${
             isOwnerLogin
               ? 'bg-charcoal-700 text-ivory border-ivory/20 hover:bg-charcoal hover:border-ivory/40'
               : 'bg-white text-charcoal border-border hover:bg-oatmeal/60 hover:border-charcoal-400'
