@@ -94,6 +94,11 @@ export function ProductCard({ product }) {
             <Badge label="Out of Stock" className="bg-warmBrown text-ivory border-warmBrown shop-badge" />
           ) : product.stock > 0 && product.stock <= (product.lowStockThreshold || 5) ? (
             <Badge label={`Only ${product.stock} Left`} className="bg-amber-100 text-amber-900 border-amber-300 font-medium shop-badge" />
+          ) : product.comparePrice && Number(product.comparePrice) > Number(product.price) ? (
+            <Badge
+              label={`${Math.round(((Number(product.comparePrice) - Number(product.price)) / Number(product.comparePrice)) * 100)}% OFF`}
+              className="bg-warmBrown text-ivory border-warmBrown font-sans font-semibold shop-badge"
+            />
           ) : product.badge ? (
             <Badge label={product.badge} className="shop-badge" />
           ) : null}
@@ -141,14 +146,19 @@ export function ProductCard({ product }) {
           </h3>
         </Link>
 
-        <div className="flex items-center gap-2 mt-auto">
+        <div className="flex flex-wrap items-center gap-2 mt-auto">
           <p className="text-body-sm font-sans font-medium text-charcoal">
             {currencySymbol}{Number(product.price || 0).toLocaleString('en-IN')}
           </p>
           {product.comparePrice && Number(product.comparePrice) > Number(product.price) && (
-            <p className="text-body-xs text-charcoal-400 line-through">
-              {currencySymbol}{Number(product.comparePrice).toLocaleString('en-IN')}
-            </p>
+            <>
+              <p className="text-body-xs text-charcoal-400 line-through font-light">
+                {currencySymbol}{Number(product.comparePrice).toLocaleString('en-IN')}
+              </p>
+              <span className="text-[11px] font-sans font-medium text-warmBrown">
+                ({Math.round(((Number(product.comparePrice) - Number(product.price)) / Number(product.comparePrice)) * 100)}% off)
+              </span>
+            </>
           )}
         </div>
       </div>

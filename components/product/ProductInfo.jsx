@@ -97,16 +97,21 @@ export default function ProductInfo({ product }) {
       </h1>
 
       {/* Price row */}
-      <div className="flex items-center gap-3">
-        <span className="font-serif font-light text-charcoal text-2xl">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="font-serif font-light text-charcoal text-2xl sm:text-3xl">
           {currencySymbol}{Number(product.price || 0).toLocaleString('en-IN')}
         </span>
         {product.comparePrice && Number(product.comparePrice) > Number(product.price) && (
-          <span className="text-body-sm text-charcoal-400 line-through">
-            {currencySymbol}{Number(product.comparePrice).toLocaleString('en-IN')}
-          </span>
+          <>
+            <span className="text-body-md text-charcoal-400 line-through font-light">
+              {currencySymbol}{Number(product.comparePrice).toLocaleString('en-IN')}
+            </span>
+            <span className="px-2.5 py-0.5 text-label-xs font-sans font-semibold uppercase tracking-wider bg-warmBrown/10 text-warmBrown border border-warmBrown/30 rounded-xs">
+              {Math.round(((Number(product.comparePrice) - Number(product.price)) / Number(product.comparePrice)) * 100)}% OFF
+            </span>
+          </>
         )}
-        <span className="text-body-xs text-charcoal-400 font-light ml-2">(Taxes included)</span>
+        <span className="text-body-xs text-charcoal-400 font-light ml-1">(Taxes included)</span>
       </div>
 
       {/* Description */}
